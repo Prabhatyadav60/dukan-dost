@@ -1,4 +1,5 @@
 """Customers, FIFO settlement maths, late-payer flag and reminder eligibility (spec §11)."""
+import asyncio
 import re
 from datetime import datetime, timedelta
 
@@ -74,9 +75,11 @@ async def load(repo: MerchantScopedRepo, customer_id: str) -> dict:
     return c
 
 
-async def to_api(repo: MerchantScopedRepo, c: dict) -> dict:
-    entries = await repo.find("ledger_entries", {"customer_id": c["_id"]})
-    reminders = await repo.find("reminders", {"customer_id": c["_id"]})
+async def to_api(repo: MerchantScopedRepo, c: dict, entries: list[dict] | None = None,
+                 reminders: list[dict] | None = None) -> dict:
+    if entries is None or reminders is None:
+        entries, reminders = await asyncio.gather(repo.find("ledger_entries", {"customer_id": c["_id"]}),
+                                                  repo.find("reminders", {"customer_id": c["_id"]}))
     f = fifo(entries)
     late = len(f["settle_days"]) >= 2 and sum(f["settle_days"]) / len(f["settle_days"]) > LATE_PAYER_DAYS
     rs = reminder_status(c, f, reminders, clock.now())
@@ -96,7 +99,16 @@ def public(c: dict) -> dict:
 
 
 async def list_api(repo: MerchantScopedRepo) -> list[dict]:
-    out = [await to_api(repo, c) for c in await repo.find("customers")]
+    # three queries total instead of two per customer (each is a network round trip to Atlas)
+    custs, entries, reminders = await asyncio.gather(repo.find("customers"), repo.find("ledger_entries"),
+                                                     repo.find("reminders"))
+    by_e: dict[str, list[dict]] = {}
+    by_r: dict[str, list[dict]] = {}
+    for e in entries:
+        by_e.setdefault(e["customer_id"], []).append(e)
+    for r in reminders:
+        by_r.setdefault(r["customer_id"], []).append(r)
+    out = [await to_api(repo, c, by_e.get(c["_id"], []), by_r.get(c["_id"], [])) for c in custs]
     return sorted(out, key=lambda c: -c["balance_paise"])
 
 

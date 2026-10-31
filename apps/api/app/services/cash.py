@@ -1,4 +1,5 @@
 """Daily sales (QR + cash, logged or estimated) and forecast input loading."""
+import asyncio
 from datetime import date, timedelta
 
 from .. import clock
@@ -10,12 +11,14 @@ async def daily_sales(repo: MerchantScopedRepo, merchant: dict, start: date, end
     """Inclusive IST date range → [{date, qr_paise, cash_paise, cash_source}]."""
     lo, _ = clock.ist_day_range(start)
     _, hi = clock.ist_day_range(end)
+    txns, cash_logs = await asyncio.gather(
+        repo.find("transactions", {"ts": {"$gte": lo, "$lt": hi}}),
+        repo.find("cash_logs", {"date": {"$gte": start.isoformat(), "$lte": end.isoformat()}}))
     qr: dict[date, int] = {}
-    for t in await repo.find("transactions", {"ts": {"$gte": lo, "$lt": hi}}):
+    for t in txns:
         d = clock.to_ist_date(t["ts"])
         qr[d] = qr.get(d, 0) + t["amount_paise"]
-    logs = {c["date"]: c["amount_paise"] for c in await repo.find(
-        "cash_logs", {"date": {"$gte": start.isoformat(), "$lte": end.isoformat()}})}
+    logs = {c["date"]: c["amount_paise"] for c in cash_logs}
     r = merchant.get("cash_share_estimate", 0.3)
     out = []
     d = start
@@ -32,13 +35,16 @@ async def daily_sales(repo: MerchantScopedRepo, merchant: dict, start: date, end
 
 async def forecast_inputs(repo: MerchantScopedRepo, merchant: dict, horizon: int, margin: float):
     today = clock.today_ist()
-    days = await daily_sales(repo, merchant, today - timedelta(days=28), today - timedelta(days=1))
     since = merchant.get("cash_on_hand_at") or clock.ist_midnight_utc(today)
-    received = sum(e["amount_paise"] for e in await repo.find(
-        "ledger_entries", {"type": "payment", "created_at": {"$gte": since}}))
+    days, payments, expenses, custs = await asyncio.gather(
+        daily_sales(repo, merchant, today - timedelta(days=28), today - timedelta(days=1)),
+        repo.find("ledger_entries", {"type": "payment", "created_at": {"$gte": since}}),
+        repo.find("expenses", {"status": "unpaid"}),
+        repo.find("customers"))
+    received = sum(e["amount_paise"] for e in payments)
     unpaid = [(date.fromisoformat(e["due_date"]) if e.get("due_date") else None, e["total_paise"])
-              for e in await repo.find("expenses", {"status": "unpaid"})]
-    collectible = sum(c["balance_paise"] for c in await repo.find("customers")
+              for e in expenses]
+    collectible = sum(c["balance_paise"] for c in custs
                       if c["balance_paise"] > 0 and c.get("phone_e164") and not c.get("do_not_remind"))
     return forecast.ForecastInputs(
         today=today, horizon=horizon,

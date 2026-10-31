@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Header, Query, Response
@@ -45,12 +46,15 @@ async def consent(req: ConsentReq, m: dict = Depends(current_merchant)):
 @router.get("/home/summary")
 async def home(m: dict = Depends(consented_merchant), repo: MerchantScopedRepo = Depends(repo_dep)):
     today = clock.today_ist()
-    [day] = await cash.daily_sales(repo, m, today, today)
-    custs = await repo.find("customers", {"balance_paise": {"$gt": 0}})
+    days, custs, unpaid, inputs = await asyncio.gather(
+        cash.daily_sales(repo, m, today, today),
+        repo.find("customers", {"balance_paise": {"$gt": 0}}),
+        repo.find("expenses", {"status": "unpaid"}, sort=[("due_date", 1)]),
+        cash.forecast_inputs(repo, m, 14, get_settings().forecast_margin))
+    [day] = days
     due_cutoff = (today + timedelta(days=7)).isoformat()
-    bills = [e for e in await repo.find("expenses", {"status": "unpaid"}, sort=[("due_date", 1)])
-             if e.get("due_date") and e["due_date"] <= due_cutoff]
-    r = forecast.compute(await cash.forecast_inputs(repo, m, 14, get_settings().forecast_margin))
+    bills = [e for e in unpaid if e.get("due_date") and e["due_date"] <= due_cutoff]
+    r = forecast.compute(inputs)
     alert = None
     if r["gap_paise"] > 0:
         alert = {"type": "cash_gap", "gap_paise": r["gap_paise"], "by_date": r["buy_by_date"].isoformat(),
