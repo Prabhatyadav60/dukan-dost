@@ -1,0 +1,26 @@
+:root {
+  --navy: #13233F;
+  --saffron: #E8952E;
+  --saffron-soft: #FFF1DC;
+  --saffron-ink: #9A560C;
+  --paper: #FFFCF6;
+  --card: #FFFFFF;
+  --line: #E6DED0;
+  --muted: #5A6478;
+  --success: #2F7A46;
+  --success-soft: #E3F2E7;
+  --blue: #2F5DA8;
+  --blue-soft: #E6EEF8;
+  --grey-soft: #EEF0F2;
+  --beige: #C9BFA9;
+  --wa: #1F8F4E;
+  --pay: #00A3E0;
+  --danger: #B3261E;
+  --chat-bg: #EEF1EC;
+  --bubble-me: #D6F2C8;
+  --display: 'Bricolage Grotesque', 'Segoe UI', Arial, sans-serif;
+  --body: 'DM Sans', 'Segoe UI', Arial, sans-serif;
+  --radius: 14px;
+  --tab-h: 64px;
+  color-scheme: light;
+}

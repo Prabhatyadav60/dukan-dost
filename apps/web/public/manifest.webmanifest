@@ -1,0 +1,9 @@
+{
+  "name": "Dukan Dost",
+  "short_name": "Dukan Dost",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFCF6",
+  "theme_color": "#13233F",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
