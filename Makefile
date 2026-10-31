@@ -1,7 +1,7 @@
 API=apps/api
 WEB=apps/web
 
-.PHONY: install api web dev seed reset-demo test
+.PHONY: install api web dev seed reset-demo test e2e
 install:            ## one-time setup
 	cd $(API) && uv sync
 	cd $(WEB) && npm install
@@ -16,3 +16,5 @@ seed reset-demo:    ## restore the exact demo state (real Mongo). With MONGO_URI
 test:
 	cd $(API) && .venv/bin/python -m pytest -q
 	cd $(WEB) && npx tsc --noEmit
+e2e:                ## browser regression on isolated servers (:8001/:5174, db dukan_dost_e2e)
+	./scripts/e2e.sh

@@ -30,7 +30,8 @@ async def test_paid_bill_reduces_cash_unpaid_is_due(client, key):
     assert paid["status"] == "paid" and paid["due_date"] is None
     f = (await client.get("/v1/forecast")).json()
     assert f["breakdown"]["spent_paise"] == 1840000
-    assert f["cash_available_paise"] == base["cash_available_paise"] - 1840000
+    # paying ₹18,400 today leaves ₹15,000 short for Diwali stock — same as owing it on 5 Nov
+    assert base["gap_paise"] == 0 and f["gap_paise"] == 1500000 and f["shortfall_date"] == "2026-11-04"
 
 
 async def test_marking_bill_paid_keeps_forecast_consistent(client, key):
@@ -115,3 +116,14 @@ async def test_voice_short_or_broken_audio_gets_clear_message(client):
     r = await client.post("/v1/voice/parse", files={"audio": ("voice.webm", broken, "audio/webm")})
     assert r.status_code == 422 and r.json()["error"]["code"] == "audio_unreadable"
     assert "Dobara bolein" in r.json()["error"]["message"]
+
+
+def test_pay_link_base_rules(monkeypatch):
+    from app.config import get_settings
+    from app.services.payments import public_base
+    monkeypatch.setattr(get_settings(), "public_web_url", "http://localhost:5173")
+    assert public_base("https://shop.ngrok-free.app") == "https://shop.ngrok-free.app"
+    assert public_base("http://localhost:5174") == "http://localhost:5174"  # local app → its own server
+    assert public_base(None) == "http://localhost:5173"
+    monkeypatch.setattr(get_settings(), "public_web_url", "https://shop.ngrok-free.app")
+    assert public_base("http://localhost:5173") == "https://shop.ngrok-free.app"  # laptop merchant, phone customer

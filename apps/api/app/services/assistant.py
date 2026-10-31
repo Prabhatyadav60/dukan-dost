@@ -48,9 +48,12 @@ async def shop_context(repo: MerchantScopedRepo, merchant: dict) -> dict:
         "recent_ledger": [{"customer": names.get(e["customer_id"], "?"), "type": e["type"],
                            "amount": format_paise(e["amount_paise"]), "items": e.get("items", []),
                            "date": clock.to_ist_date(e["created_at"]).isoformat()} for e in entries],
-        "forecast": None if not f["festival"] else {
-            "festival": f["festival"]["name"], "festival_date": _day(f["festival"]["date"]),
-            "buy_stock_by": f["buy_by_date"].strftime("%-d %b"),
+        "forecast": None if not (f["festival"] or f["gap_paise"]) else {
+            "festival": f["festival"]["name"] if f["festival"] else None,
+            "festival_date": _day(f["festival"]["date"]) if f["festival"] else None,
+            "buy_stock_by": f["buy_by_date"].strftime("%-d %b") if f["buy_by_date"] else None,
+            "money_needed_by": f["shortfall_date"].strftime("%-d %b") if f["shortfall_date"] else None,
+            "lowest_cash_next_30_days": format_paise(f["low_point"]["balance_paise"]),
             "stock_needed": format_paise(f["stock_needed_paise"]),
             "cash_available": format_paise(f["cash_available_paise"]), "shortfall": format_paise(f["gap_paise"]),
             "collect_udhaar": format_paise(f["plan"]["collect_paise"]),

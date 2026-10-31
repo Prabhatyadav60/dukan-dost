@@ -12,7 +12,7 @@ from ..errors import AppError
 log = structlog.get_logger()
 T = TypeVar("T")
 
-TIMEOUTS = {"speech": 8.0, "vision": 20.0, "text": 10.0, "tts": 10.0}
+TIMEOUTS = {"speech": 8.0, "vision": 20.0, "text": 10.0, "tts": 25.0}  # first synthesis of a long reply can take >10 s
 BACKOFF = (0.5, 1.5)
 
 

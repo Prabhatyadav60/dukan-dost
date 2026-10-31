@@ -42,6 +42,7 @@ async def create_indexes(db) -> None:
     await db.forecasts.create_index([("merchant_id", 1), ("generated_at", -1)])
     await db.events.create_index([("merchant_id", 1), ("type", 1), ("ts", 1)])
     await db.thread_messages.create_index([("merchant_id", 1), ("created_at", 1)])
+    await db.cash_receipts.create_index([("merchant_id", 1), ("date", 1), ("created_at", 1)])
     await db.tts_cache.create_index([("merchant_id", 1), ("text_hash", 1)])
     await db.shelf_scans.create_index([("merchant_id", 1), ("shelf_label", 1), ("created_at", 1)])
 
@@ -75,6 +76,8 @@ class MerchantScopedRepo:
         return doc
 
     async def update(self, col: str, filt: dict, update: dict, upsert: bool = False) -> None:
+        if upsert:  # keep our string ids even for documents created by an upsert
+            update = {**update, "$setOnInsert": {**update.get("$setOnInsert", {}), "_id": new_id()}}
         await self.db[col].update_one(self._f(filt), update, upsert=upsert)
 
     async def update_many(self, col: str, filt: dict, update: dict) -> None:

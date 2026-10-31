@@ -36,6 +36,7 @@ button { font: inherit; color: inherit; }
 .card.dark { background: var(--navy); color: #F6F1E7; border: none; }
 .card.dark .sub { color: #B8C2D4; }
 .card.link { display: block; text-decoration: none; color: inherit; }
+.card.dark.link { color: #F6F1E7; } /* a link card must not inherit navy text onto the navy card */
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 15px; }
 .row + .row { margin-top: 6px; }
@@ -177,3 +178,20 @@ label.check input { width: 22px; min-height: 22px; height: 22px; margin-top: 2px
 .speak.on { background: var(--brand); border-color: var(--brand); }
 .speak:disabled { opacity: .6; cursor: progress; }
 .check.autoread { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+/* home: tagline, drill-down affordance, overdue bills */
+.tagline { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.heart { color: #E53935; font-size: 12px; }
+.card.dark .more { color: var(--brand); font-weight: 600; margin-top: 6px; }
+.overdue { color: var(--danger); font-weight: 600; }
+.chip.c-red { background: #FDECEA; color: var(--danger); }
+
+/* forecast timeline */
+.tl-day { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tl-day:last-child { border-bottom: none; }
+.tl-day.low { background: var(--brand-soft); margin: 0 -14px; padding: 10px 14px; border-radius: 10px; }
+.tl-day.low.neg { background: #FDECEA; }
+.tl-day .ev { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.amt-out { color: var(--danger); }
+.amt-in { color: var(--success); }
+.bal-neg { color: var(--danger); font-weight: 700; }

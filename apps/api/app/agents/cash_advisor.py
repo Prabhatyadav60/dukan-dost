@@ -41,10 +41,15 @@ async def explain(state: AdvisorState) -> AdvisorState:
     if r["gap_paise"] <= 0:
         return {"explanation": None}
     v = {"stock_needed": format_paise(r["stock_needed_paise"]),
-         "buy_by": r["buy_by_date"].strftime("%-d %b"),
+         "buy_by": r["shortfall_date"].strftime("%-d %b"),
          "gap": format_paise(r["gap_paise"]),
          "collect": format_paise(r["plan"]["collect_paise"]),
          "loan": format_paise(r["plan"]["loan_paise"])}
+    reason = r["shortfall_reason"]
+    if not reason or reason["kind"] == "bills":  # a bill causes it: fixed wording, every number from code
+        v["reason"] = f"{reason['label']} ka {format_paise(reason['amount_paise'])} ka bill" if reason else "bills"
+        v["buy_by"] = r["low_point"]["date"].strftime("%-d %b")  # the bill's day, when the full amount is needed
+        return {"explanation": writers.bills_explanation(v)}
     return {"explanation": await writers.explanation(v)}
 
 
@@ -54,6 +59,11 @@ async def persist(state: AdvisorState) -> AdvisorState:
     doc = await repo.insert("forecasts", {
         "generated_at": clock.now(), "horizon_days": state["horizon"],
         "festival": r["festival"], "buy_by_date": r["buy_by_date"].isoformat() if r["buy_by_date"] else None,
+        "shortfall_date": r["shortfall_date"].isoformat() if r["shortfall_date"] else None,
+        "low_point": {**r["low_point"], "date": r["low_point"]["date"].isoformat()},
+        "timeline": [{**t, "date": t["date"].isoformat()} for t in r["timeline"]],
+        "counted_bill_ids": sorted(i for i in r["counted_bill_ids"] if i),
+        "shortfall_reason": r["shortfall_reason"],
         "daily": [{**d, "date": d["date"].isoformat()} for d in r["daily"]],
         "stock_needed_paise": r["stock_needed_paise"], "cash_available_paise": r["cash_available_paise"],
         "gap_paise": r["gap_paise"], "plan": r["plan"], "explanation": state.get("explanation"),
@@ -63,8 +73,10 @@ async def persist(state: AdvisorState) -> AdvisorState:
     if loan > 0:
         offer = await repo.find_one("loan_offers", sort=[("created_at", -1)])
         if not offer or offer["amount_paise"] != loan:
+            kind = (r["shortfall_reason"] or {}).get("kind")
             offer = await repo.insert("loan_offers", {"forecast_id": doc["_id"], "amount_paise": loan,
-                                                      "reason": "festival_stock_gap", "status": "shown",
+                                                      "reason": "festival_stock_gap" if kind == "stock" else "bill_payment_gap",
+                                                      "status": "shown",
                                                       "created_at": clock.now()})
             await events.log(repo, "offer_shown", offer["_id"], amount_paise=loan)
     # one alert per change in the gap, not one per page view

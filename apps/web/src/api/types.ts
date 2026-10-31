@@ -25,8 +25,8 @@ export interface HomeSummary {
   udhaar_total_paise: number;
   customers_with_balance: number;
   restock_sections: number | null;
-  bills_due: { expense_id: string; vendor: string; total_paise: number; due_date: string }[];
-  alert: { type: 'cash_gap'; gap_paise: number; by_date: string; message: string } | null;
+  bills_due: { expense_id: string; vendor: string; total_paise: number; due_date: string; overdue?: boolean }[];
+  alert: { type: 'cash_gap'; gap_paise: number; by_date: string; message: string; reason?: 'stock' | 'bills' } | null;
 }
 
 export interface ThreadMessage {
@@ -158,8 +158,12 @@ export interface Forecast {
   gap_paise: number;
   plan: { collect_paise: number; loan_paise: number };
   explanation: string;
-  assumptions: { margin: number; cash_share: number; dues_grace_days: number };
+  assumptions: { margin: number; cash_share: number; dues_grace_days?: number };
   bills?: ForecastBill[];
+  /** Date the money runs short by (bills alone can cause it, without a festival). */
+  shortfall_date?: string | null;
+  low_point?: { date: string; balance_paise: number } | null;
+  timeline?: TimelineDay[];
   breakdown?: {
     cash_on_hand_paise: number;
     received_paise: number;
@@ -175,6 +179,57 @@ export interface ForecastBill {
   total_paise: number;
   due_date: string | null;
   status: ExpenseStatus;
+  counted?: boolean;
+  overdue?: boolean;
+}
+
+export interface TimelineEvent {
+  kind: 'stock' | 'bill' | 'festival_sales' | 'overdue_bills' | string;
+  label: string;
+  /** Negative = money out. */
+  amount_paise: number;
+}
+
+export interface TimelineDay {
+  date: string;
+  balance_paise: number;
+  events: TimelineEvent[];
+}
+
+export type CashReceiptKind = 'sale' | 'udhaar';
+
+export interface CashReceiptRequest {
+  amount_paise: number;
+  kind: CashReceiptKind;
+  customer_id?: string;
+  note?: string;
+}
+
+export interface CashReceiptResponse {
+  receipt: {
+    id: string;
+    kind: CashReceiptKind;
+    amount_paise: number;
+    customer_id: string | null;
+    customer_name: string | null;
+    note: string | null;
+    created_at: string;
+  };
+  today_cash_paise: number;
+  customer: Customer | null;
+}
+
+export interface SalesToday {
+  date: string;
+  total_paise: number;
+  qr_paise: number;
+  cash_paise: number;
+  cash_source: CashSource;
+  qr: { id: string; ts: string; amount_paise: number; payer_name: string | null; payer_vpa: string | null }[];
+  cash: { id: string; ts: string; amount_paise: number; note: string | null; source: string }[];
+  cash_unitemised_paise: number;
+  by_payer: { name: string; vpa: string | null; channel: 'qr' | 'cash'; count: number; amount_paise: number }[];
+  udhaar_repaid: { customer_id: string; customer_name: string; amount_paise: number; source: string; ts: string }[];
 }
 
 export interface ShelfFinding {

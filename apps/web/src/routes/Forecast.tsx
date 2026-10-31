@@ -16,6 +16,7 @@ export default function Forecast() {
   const [paying, setPaying] = useState<string | null>(null);
   const toast = useToast();
   const d = f.data;
+  const shortfallBy = d?.shortfall_date ?? d?.buy_by_date ?? null;
 
   async function markPaid(id: string) {
     setPaying(id);
@@ -45,12 +46,12 @@ export default function Forecast() {
             <div className="row"><span>{s.forecast.needed}</span><b>{formatPaise(d.stock_needed_paise)}</b></div>
             <div className="row"><span>{s.forecast.available}</span><b>{formatPaise(d.cash_available_paise)}</b></div>
             {d.gap_paise > 0 ? (
-              <div className="row warn"><b>{s.forecast.gap(d.buy_by_date ? shortDate(d.buy_by_date) : '—')}</b><b>{formatPaise(d.gap_paise)}</b></div>
+              <div className="row warn"><b>{s.forecast.gap(shortfallBy ? shortDate(shortfallBy) : '—')}</b><b>{formatPaise(d.gap_paise)}</b></div>
             ) : (
               <p className="ok" style={{ marginTop: 6 }}>{s.forecast.noGap}</p>
             )}
           </div>
-          {d.gap_paise > 0 && (
+          {(d.gap_paise > 0 || d.plan.loan_paise > 0) && (
             <div className="card dark">
               <div className="row"><span>{s.forecast.collect}</span><b>{formatPaise(d.plan.collect_paise)}</b></div>
               {d.plan.loan_paise > 0 && <div className="row"><span>{s.forecast.loan}</span><b>{formatPaise(d.plan.loan_paise)}</b></div>}
@@ -58,6 +59,34 @@ export default function Forecast() {
             </div>
           )}
           {d.explanation && <div className="bub hl" style={{ maxWidth: '100%' }}>{d.explanation}</div>}
+          {d.timeline && d.timeline.length > 0 && (
+            <section className="card" aria-label={s.forecast.timeline}>
+              <h2 className="mid">{s.forecast.timeline}</h2>
+              <p className="sub" style={{ marginBottom: 4 }}>{s.forecast.timelineSub}</p>
+              {d.timeline.map((day) => {
+                const low = d.low_point?.date === day.date;
+                return (
+                  <div key={day.date} className={'tl-day' + (low ? ' low' : '') + (low && day.balance_paise < 0 ? ' neg' : '')}>
+                    <div className="row">
+                      <b>{shortDate(day.date)}{low && <span className="sub"> · {s.forecast.lowPoint}</span>}</b>
+                      <span>
+                        <span className="sub">{s.forecast.balance} </span>
+                        <b className={day.balance_paise < 0 ? 'bal-neg' : ''}>{formatPaise(day.balance_paise)}</b>
+                      </span>
+                    </div>
+                    {day.events.map((ev, i) => (
+                      <div key={i} className="ev">
+                        <span>{ev.label}</span>
+                        <span className={ev.amount_paise < 0 ? 'amt-out' : 'amt-in'}>
+                          {ev.amount_paise < 0 ? '−' : '+'}{formatPaise(Math.abs(ev.amount_paise))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </section>
+          )}
           {d.bills && (
             <div className="card">
               <p className="sub" style={{ marginBottom: 4 }}>{s.forecast.bills}</p>
@@ -66,7 +95,11 @@ export default function Forecast() {
                 <div key={b.id} className="billrow">
                   <div>
                     <b>{b.vendor}</b> · {formatPaise(b.total_paise)}
-                    {b.due_date && <p className="sub">{s.forecast.due} {shortDate(b.due_date)}</p>}
+                    {b.due_date && <p className={b.overdue ? 'sub overdue' : 'sub'}>{s.forecast.due} {shortDate(b.due_date)}</p>}
+                    <p>
+                      {b.overdue && <span className="chip c-red">{s.forecast.overdue}</span>}
+                      {b.counted && <span className="chip c-blue">{s.forecast.counted}</span>}
+                    </p>
                   </div>
                   <button className="btn ghost small" disabled={paying === b.id} onClick={() => void markPaid(b.id)}>{s.expense.paid}</button>
                 </div>
@@ -88,7 +121,7 @@ export default function Forecast() {
                   <div className="row total"><b>= {s.forecast.equals}</b><b>{formatPaise(d.cash_available_paise)}</b></div>
                 </div>
               ) : (
-                <p>Galle ka cash + wapas mila udhaar + margin − bills due (buy-by + {d.assumptions.dues_grace_days} din) = cash milega.</p>
+                <p>Galle ka cash + wapas mila udhaar + margin − bills due = cash milega.</p>
               )}
               <p>Cash ka hissa: {Math.round(d.assumptions.cash_share * 100)}%.</p>
             </div>

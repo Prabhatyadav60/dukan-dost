@@ -53,3 +53,12 @@ async def explanation(v: dict) -> str:
     except Exception:  # noqa: BLE001
         pass
     return explanation_template(v)
+
+
+def bills_explanation(v: dict) -> str:
+    """Shortfall caused by bills, not festival stock. Every number is passed in, none generated."""
+    s = (f"{v['buy_by']} tak {v.get('reason', 'bills')} chukane ke liye {v['gap']} kam padega. "
+         f"Pehle {v['collect']} pending udhaar collect karein?")
+    if v["loan"] != "₹0":
+        s += f" Baaki {v['loan']} ke liye Paytm loan offer dekhein?"
+    return s

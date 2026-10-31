@@ -8,6 +8,7 @@ import Home from './routes/Home';
 import Login from './routes/Login';
 import Onboarding from './routes/Onboarding';
 import Pay from './routes/Pay';
+import Sales from './routes/Sales';
 import Scan from './routes/Scan';
 import Udhaar from './routes/Udhaar';
 import { RequireAuth, SessionProvider } from './session';
@@ -32,6 +33,7 @@ export default function App() {
                   <Route path="/udhaar/:id" element={<CustomerDetail />} />
                   <Route path="/forecast" element={<Forecast />} />
                   <Route path="/scan" element={<Scan />} />
+                  <Route path="/sales" element={<Sales />} />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

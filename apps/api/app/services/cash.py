@@ -43,13 +43,13 @@ async def forecast_inputs(repo: MerchantScopedRepo, merchant: dict, horizon: int
         repo.find("expenses", {"status": "paid", "paid_at": {"$gte": since}}),
         repo.find("customers"))
     received = sum(e["amount_paise"] for e in payments)
-    unpaid = [(date.fromisoformat(e["due_date"]) if e.get("due_date") else None, e["total_paise"])
-              for e in expenses]
+    unpaid = [forecast.Bill(amount_paise=e["total_paise"], vendor=e["vendor"], id=e["_id"],
+                            due=date.fromisoformat(e["due_date"]) if e.get("due_date") else None) for e in expenses]
     collectible = sum(c["balance_paise"] for c in custs
                       if c["balance_paise"] > 0 and c.get("phone_e164") and not c.get("do_not_remind"))
     return forecast.ForecastInputs(
         today=today, horizon=horizon,
         daily_totals={x["date"]: x["qr_paise"] + x["cash_paise"] for x in days},
         festivals=forecast.load_festivals(), cash_on_hand_paise=merchant.get("cash_on_hand_paise", 0),
-        received_paise=received, unpaid_expenses=unpaid, collectible_paise=collectible, margin=margin,
+        received_paise=received, unpaid_bills=unpaid, collectible_paise=collectible, margin=margin,
         spent_paise=sum(e["total_paise"] for e in paid))

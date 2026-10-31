@@ -101,7 +101,9 @@ def _forecast_api(doc: dict) -> dict:
             "daily": [{k: d[k] for k in ("date", "baseline_paise", "uplift", "forecast_paise")} for d in doc["daily"]],
             "stock_needed_paise": doc["stock_needed_paise"], "cash_available_paise": doc["cash_available_paise"],
             "gap_paise": doc["gap_paise"], "plan": doc["plan"], "explanation": doc["explanation"],
-            "assumptions": doc["assumptions"], "breakdown": doc.get("breakdown")}
+            "assumptions": doc["assumptions"], "breakdown": doc.get("breakdown"),
+            "shortfall_date": doc.get("shortfall_date"), "low_point": doc.get("low_point"),
+            "timeline": doc.get("timeline", []), "shortfall_reason": doc.get("shortfall_reason")}
 
 
 @router.get("/forecast")
@@ -109,9 +111,12 @@ async def get_forecast(horizon: int = Query(14, ge=7, le=30), m: dict = Depends(
                        repo: MerchantScopedRepo = Depends(repo_dep)):
     doc = await cash_advisor.run(repo, m, horizon)
     bills = await repo.find("expenses", {"status": "unpaid"}, sort=[("due_date", 1)])
+    today = clock.today_ist().isoformat()
+    counted = set(doc.get("counted_bill_ids", []))
     return {**_forecast_api(doc), "bills": [
         {"id": e["_id"], "vendor": e["vendor"], "total_paise": e["total_paise"], "due_date": e.get("due_date"),
-         "status": e["status"]} for e in bills]}
+         "status": e["status"], "counted": e["_id"] in counted,
+         "overdue": bool(e.get("due_date")) and e["due_date"] < today} for e in bills]}
 
 
 def _offer_api(o: dict) -> dict:

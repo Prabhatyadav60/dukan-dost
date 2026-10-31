@@ -11,13 +11,18 @@ from ..money import format_paise
 from . import customers, events, ledger, thread
 
 
+def _is_local(url: str) -> bool:
+    return "localhost" in url or "127.0.0.1" in url
+
+
 def public_base(origin: str | None) -> str:
-    """Pay links point at the same web app the merchant is using (e.g. the ngrok HTTPS URL),
-    falling back to PUBLIC_WEB_URL for server-side callers."""
+    """Where a customer's pay link should point: the public address the merchant is using (e.g. ngrok);
+    else a public PUBLIC_WEB_URL (merchant on the laptop, customers on the tunnel); else the app's own
+    address, so a local setup links to the server that actually has this shop's data."""
     configured = get_settings().public_web_url
-    if origin and origin.startswith(("http://", "https://")) and "localhost" not in origin \
-            and "127.0.0.1" not in origin:
-        return origin
+    if origin and origin.startswith(("http://", "https://")):
+        if not _is_local(origin) or _is_local(configured):
+            return origin
     return configured
 
 

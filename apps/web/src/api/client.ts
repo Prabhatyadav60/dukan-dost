@@ -1,6 +1,6 @@
 import type {
   BillScanResponse, CashLog, Customer, EntryDraft, Expense, ExpenseCategory, Forecast, HomeSummary,
-  ExpenseStatus, LedgerEntry, LineItem, LoanOffer, Merchant, PublicPay, ReminderDraft, SessionResponse, ShelfScan,
+  CashReceiptRequest, CashReceiptResponse, ExpenseStatus, LedgerEntry, SalesToday, LineItem, LoanOffer, Merchant, PublicPay, ReminderDraft, SessionResponse, ShelfScan,
   ThreadMessage, VoiceParseResponse,
 } from './types';
 
@@ -88,6 +88,9 @@ export const api = {
     request<Merchant>('/v1/onboarding/consent', { body: b }),
 
   home: () => request<HomeSummary>('/v1/home/summary'),
+  salesToday: () => request<SalesToday>('/v1/sales/today'),
+  cashReceipt: (b: CashReceiptRequest, key: string) =>
+    request<CashReceiptResponse>('/v1/cash/receipts', { body: b, idempotencyKey: key }),
   thread: (limit = 50) => request<{ messages: ThreadMessage[] }>(`/v1/thread?limit=${limit}`),
 
   voiceParseAudio: (blob: Blob, filename: string) => {

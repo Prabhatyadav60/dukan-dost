@@ -67,3 +67,10 @@ class CashLogReq(Strict):
 class PaymentLinkReq(Strict):
     customer_id: str
     amount_paise: int = Field(gt=0)
+
+
+class CashReceiptReq(Strict):
+    amount_paise: int = Field(gt=0)
+    kind: Literal["sale", "udhaar"]
+    customer_id: str | None = None
+    note: str | None = Field(None, max_length=80)

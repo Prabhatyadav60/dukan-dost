@@ -7,10 +7,10 @@ from .. import clock
 from ..auth import current_merchant, issue_token, merchant_api, repo_dep, consented_merchant, verify_otp
 from ..db import MerchantScopedRepo, get_db
 from ..errors import AppError, not_found
-from ..models import (CashLogReq, ConsentReq, CustomerCreate, CustomerPatch, ExpensePatch, ExpenseReq,
+from ..models import (CashLogReq, CashReceiptReq, ConsentReq, CustomerCreate, CustomerPatch, ExpensePatch, ExpenseReq,
                       LedgerReq, SessionReq)
 from ..money import format_paise
-from ..services import cash, customers, events, forecast, idempotency, ledger, thread
+from ..services import cash, customers, events, forecast, idempotency, ledger, sales, thread
 from ..config import get_settings
 
 router = APIRouter(prefix="/v1")
@@ -53,12 +53,17 @@ async def home(m: dict = Depends(consented_merchant), repo: MerchantScopedRepo =
         cash.forecast_inputs(repo, m, 14, get_settings().forecast_margin))
     [day] = days
     due_cutoff = (today + timedelta(days=7)).isoformat()
-    bills = [e for e in unpaid if e.get("due_date") and e["due_date"] <= due_cutoff]
+    bills = [e for e in unpaid if e.get("due_date") and e["due_date"] <= due_cutoff]  # overdue included
     r = forecast.compute(inputs)
     alert = None
     if r["gap_paise"] > 0:
-        alert = {"type": "cash_gap", "gap_paise": r["gap_paise"], "by_date": r["buy_by_date"].isoformat(),
-                 "message": f"{r['buy_by_date'].strftime('%-d %b')} tak {format_paise(r['gap_paise'])} kam padega"}
+        first, low = r["shortfall_date"], r["low_point"]["date"]
+        gap = format_paise(r["gap_paise"])
+        message = f"{first.strftime('%-d %b')} tak {gap} kam padega"
+        if (r["shortfall_reason"] or {}).get("kind") == "bills" and low != first:
+            message = f"{first.strftime('%-d %b')} se kami shuru, {low.strftime('%-d %b')} tak kul {gap} kam padega"
+        alert = {"type": "cash_gap", "gap_paise": r["gap_paise"], "by_date": first.isoformat(),
+                 "reason": (r["shortfall_reason"] or {}).get("kind", "bills"), "message": message}
     restock = None
     if get_settings().feature_shelf_scan:
         lo, hi = clock.ist_day_range(today)
@@ -73,7 +78,7 @@ async def home(m: dict = Depends(consented_merchant), repo: MerchantScopedRepo =
         "customers_with_balance": len(custs),
         "restock_sections": restock,
         "bills_due": [{"expense_id": e["_id"], "vendor": e["vendor"], "total_paise": e["total_paise"],
-                       "due_date": e["due_date"]} for e in bills],
+                       "due_date": e["due_date"], "overdue": e["due_date"] < today.isoformat()} for e in bills],
         "alert": alert,
     }
 
@@ -222,3 +227,21 @@ async def cashflow(days: int = Query(30, ge=1, le=90), m: dict = Depends(consent
         "owed_to_shop_paise": sum(c["balance_paise"] for c in await repo.find("customers", {"balance_paise": {"$gt": 0}})),
         "daily": [{**d, "date": d["date"].isoformat()} for d in daily],
     }
+
+
+@router.post("/cash/receipts", status_code=201)
+async def cash_receipt(req: CashReceiptReq, response: Response, m: dict = Depends(consented_merchant),
+                       repo: MerchantScopedRepo = Depends(repo_dep), idempotency_key: str | None = Header(None)):
+    """'Cash mila' button: a cash sale (adds to today's cash) or udhaar paid back in cash."""
+    async def do():
+        return await sales.receive_cash(repo, m, req.amount_paise, req.kind, req.customer_id, req.note)
+
+    status, body = await idempotency.run(get_db(), repo.merchant_id, "cash-receipts", idempotency_key,
+                                         req.model_dump(), do)
+    response.status_code = status
+    return body
+
+
+@router.get("/sales/today")
+async def sales_today(m: dict = Depends(consented_merchant), repo: MerchantScopedRepo = Depends(repo_dep)):
+    return await sales.today(repo, m)
