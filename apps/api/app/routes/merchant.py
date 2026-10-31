@@ -145,11 +145,14 @@ async def add_expense(req: ExpenseReq, response: Response, repo: MerchantScopedR
                       idempotency_key: str | None = Header(None)):
     async def do():
         data = req.model_dump(mode="json")
-        e = await repo.insert("expenses", {**data, "status": "unpaid", "idempotency_key": idempotency_key,
-                                           "created_at": clock.now(), "paid_at": None})
-        await events.log(repo, "bill_saved", e["_id"], source=req.source)
-        due = ""
-        if req.due_date:
+        paid = req.status == "paid"
+        if paid:
+            data["due_date"] = None
+        e = await repo.insert("expenses", {**data, "idempotency_key": idempotency_key, "created_at": clock.now(),
+                                           "paid_at": clock.now() if paid else None})
+        await events.log(repo, "bill_saved", e["_id"], source=req.source, status=req.status)
+        due = ", paid" if paid else ""
+        if not paid and req.due_date:
             due = f", due {req.due_date.strftime('%-d %b')}"
         text = (f"Bill padh liya: {format_paise(req.total_paise)}{due}." if req.source == "bill_scan"
                 else f"Kharcha likh diya: {req.vendor} {format_paise(req.total_paise)}{due}.")
@@ -171,9 +174,14 @@ async def list_expenses(status: str | None = Query(None, pattern="^(paid|unpaid)
 
 @router.patch("/expenses/{expense_id}")
 async def patch_expense(expense_id: str, req: ExpensePatch, repo: MerchantScopedRepo = Depends(repo_dep)):
-    if not await repo.get("expenses", expense_id):
+    e = await repo.get("expenses", expense_id)
+    if not e:
         raise not_found()
-    await repo.update("expenses", {"_id": expense_id}, {"$set": {"status": "paid", "paid_at": clock.now()}})
+    if e["status"] != "paid":
+        await repo.update("expenses", {"_id": expense_id}, {"$set": {"status": "paid", "paid_at": clock.now()}})
+        await thread.add(repo, "assistant", "text",
+                         f"{e['vendor']} ka {format_paise(e['total_paise'])} paid mark kar diya.",
+                         {"type": "expense", "id": expense_id})
     return expense_api(await repo.get("expenses", expense_id))
 
 

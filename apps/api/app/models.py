@@ -51,6 +51,7 @@ class ExpenseReq(Strict):
     category: Literal["stock", "rent", "staff", "other"] = "other"
     source: Literal["bill_scan", "voice", "text", "manual"] = "manual"
     image_keys: list[str] = []
+    status: Literal["paid", "unpaid"] = "unpaid"
 
 
 class ExpensePatch(Strict):

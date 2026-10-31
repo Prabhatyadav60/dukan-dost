@@ -129,7 +129,7 @@ async def test_expense_without_vendor_gets_default(client, monkeypatch):
     from app.ai.fake import FakeLLM
     from app.ai.schemas import EntryDraft
 
-    async def no_vendor(self, transcript):
+    async def no_vendor(self, transcript, today=""):
         return EntryDraft(intent="expense", amount_paise=800000, category="rent", confidence=0.9)
     monkeypatch.setattr(FakeLLM, "parse_entry", no_vendor)
     r = (await client.post("/v1/voice/parse", data={"text": "dukaan ka rent 8000 diya"})).json()

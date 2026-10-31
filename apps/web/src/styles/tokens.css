@@ -1,23 +1,26 @@
 :root {
-  --navy: #13233F;
-  --saffron: #E8952E;
-  --saffron-soft: #FFF1DC;
+  --navy: #002E6E;          /* Paytm navy */
+  --brand: #00BAF2;         /* Paytm sky blue: primary accent */
+  --brand-soft: #E5F7FE;
+  --brand-ink: #0071B7;
+  --saffron: #F5A623;        /* amber: warnings only (shortfall, mismatch) */
+  --saffron-soft: #FFF4E0;
   --saffron-ink: #9A560C;
-  --paper: #FFFCF6;
+  --paper: #F5F8FC;
   --card: #FFFFFF;
-  --line: #E6DED0;
-  --muted: #5A6478;
+  --line: #DDE6F0;
+  --muted: #55657E;
   --success: #2F7A46;
   --success-soft: #E3F2E7;
-  --blue: #2F5DA8;
-  --blue-soft: #E6EEF8;
+  --blue: #0071B7;
+  --blue-soft: #E5F4FD;
   --grey-soft: #EEF0F2;
-  --beige: #C9BFA9;
+  --beige: #C5D3E3;
   --wa: #1F8F4E;
-  --pay: #00A3E0;
+  --pay: #00BAF2;
   --danger: #B3261E;
-  --chat-bg: #EEF1EC;
-  --bubble-me: #D6F2C8;
+  --chat-bg: #EEF4FA;
+  --bubble-me: #D7F2FD;
   --display: 'Bricolage Grotesque', 'Segoe UI', Arial, sans-serif;
   --body: 'DM Sans', 'Segoe UI', Arial, sans-serif;
   --radius: 14px;

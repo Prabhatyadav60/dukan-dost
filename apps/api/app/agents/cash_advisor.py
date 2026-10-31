@@ -57,6 +57,7 @@ async def persist(state: AdvisorState) -> AdvisorState:
         "daily": [{**d, "date": d["date"].isoformat()} for d in r["daily"]],
         "stock_needed_paise": r["stock_needed_paise"], "cash_available_paise": r["cash_available_paise"],
         "gap_paise": r["gap_paise"], "plan": r["plan"], "explanation": state.get("explanation"),
+        "breakdown": r["breakdown"],
         "assumptions": {**r["assumptions"], "cash_share": state["merchant"].get("cash_share_estimate")}})
     loan = r["plan"]["loan_paise"]
     if loan > 0:

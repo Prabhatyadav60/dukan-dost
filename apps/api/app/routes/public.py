@@ -11,10 +11,11 @@ router = APIRouter()
 
 
 @router.post("/v1/payment-links", status_code=201)
-async def create_payment_link(req: PaymentLinkReq, response: Response, repo: MerchantScopedRepo = Depends(repo_dep),
-                              idempotency_key: str | None = Header(None)):
+async def create_payment_link(req: PaymentLinkReq, request: Request, response: Response,
+                              repo: MerchantScopedRepo = Depends(repo_dep), idempotency_key: str | None = Header(None)):
     async def do():
-        return payments.link_api(await payments.create_link(repo, req.customer_id, req.amount_paise, idempotency_key))
+        link = await payments.create_link(repo, req.customer_id, req.amount_paise, idempotency_key)
+        return payments.link_api(link, payments.public_base(request.headers.get("origin")))
 
     status, body = await idempotency.run(get_db(), repo.merchant_id, "payment-links", idempotency_key,
                                          req.model_dump(), do)

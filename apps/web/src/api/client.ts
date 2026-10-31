@@ -1,7 +1,7 @@
 import type {
   BillScanResponse, CashLog, Customer, EntryDraft, Expense, ExpenseCategory, Forecast, HomeSummary,
-  LedgerEntry, LineItem, LoanOffer, Merchant, PublicPay, ReminderDraft, SessionResponse, ThreadMessage,
-  VoiceParseResponse,
+  ExpenseStatus, LedgerEntry, LineItem, LoanOffer, Merchant, PublicPay, ReminderDraft, SessionResponse, ShelfScan,
+  ThreadMessage, VoiceParseResponse,
 } from './types';
 
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
@@ -104,9 +104,19 @@ export const api = {
   },
   createExpense: (
     b: { vendor: string; line_items: LineItem[]; total_paise: number; due_date: string | null;
-      category: ExpenseCategory; source: Expense['source']; image_keys: string[] },
+      category: ExpenseCategory; source: Expense['source']; image_keys: string[]; status: ExpenseStatus },
     key: string,
   ) => request<Expense>('/v1/expenses', { body: b, idempotencyKey: key }),
+  markExpensePaid: (id: string) => request<Expense>(`/v1/expenses/${id}`, { method: 'PATCH', body: { status: 'paid' } }),
+
+  shelfScan: (image: Blob, shelfLabel = 'main') => {
+    const f = new FormData();
+    f.append('image', image, 'shelf.jpg');
+    f.append('shelf_label', shelfLabel);
+    return request<ShelfScan>('/v1/shelf/scan', { form: f });
+  },
+  shelfLatest: (shelfLabel = 'main') =>
+    request<ShelfScan | null>(`/v1/shelf/latest?shelf_label=${encodeURIComponent(shelfLabel)}`),
 
   cashLog: (b: CashLog, key: string) => request<CashLog>('/v1/cash/logs', { body: b, idempotencyKey: key }),
 

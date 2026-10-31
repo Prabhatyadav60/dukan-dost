@@ -1,7 +1,7 @@
 """Demo seed (spec §12). `python -m app.seed` drops the database and restores the exact demo state."""
 import asyncio
 import random
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from . import clock
 from .config import get_settings

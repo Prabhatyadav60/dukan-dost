@@ -13,10 +13,16 @@ async function login(page: Page) {
   await expect(page.getByText('Aaj ka hisaab')).toBeVisible();
 }
 
+/** Types an entry the way the merchant would: the chat's own text box when in chat, else the tab-bar keyboard. */
 async function typeEntry(page: Page, text: string) {
-  await page.getByRole('button', { name: 'Likh kar bhejein' }).click();
-  await page.getByPlaceholder('Likhein: Sharma ji 450 udhaar').fill(text);
-  await page.getByRole('button', { name: 'Bhejein', exact: true }).click();
+  if (page.url().endsWith('/assistant')) {
+    await page.getByRole('textbox', { name: /Likhein ya poochhein/ }).fill(text);
+    await page.getByRole('button', { name: 'Chat mein bhejein' }).click();
+  } else {
+    await page.getByRole('button', { name: 'Likh kar bhejein' }).click();
+    await page.getByPlaceholder('Likhein: Sharma ji 450 udhaar').fill(text);
+    await page.getByRole('button', { name: 'Bhejein', exact: true }).click();
+  }
   await expect(page.getByRole('dialog', { name: 'Yeh sahi hai?' })).toBeVisible();
 }
 
@@ -59,9 +65,10 @@ test('demo script end to end', async ({ page, context }) => {
 
   await test.step('3. scan the Balaji bill', async () => {
     await page.getByRole('link', { name: 'Scan' }).click();
-    await page.locator('input[type=file]').setInputFiles(fixture('balaji-bill.jpg'));
+    await page.locator('input[type=file]:not([data-testid=chat-photo-input])').setInputFiles(fixture('balaji-bill.jpg'));
     await expect(page.getByText('Line items total se match karte hain')).toBeVisible();
     await expect(page.getByText(/18,400/).first()).toBeVisible();
+    await page.getByRole('radio', { name: 'Baad mein dena hai' }).click();
     await page.getByRole('button', { name: 'Kharche mein jodein' }).click();
     await expect(page.getByText(/Bill save ho gaya|Bill padh liya/).first()).toBeVisible();
   });
@@ -148,6 +155,7 @@ test('side flows: other intents, new customer, customer page', async ({ page }) 
     await typeEntry(page, 'dukaan ka rent 8000 diya');
     const sheet = page.getByRole('dialog', { name: 'Yeh sahi hai?' });
     await expect(sheet.locator('select').first()).toHaveValue('expense');
+    await expect(sheet.getByRole('radio', { name: 'Paid kar diya' })).toHaveAttribute('aria-checked', 'true');
     await saveSheet(page);
     await expect(page.getByText(/Kharcha likh diya/).first()).toBeVisible();
   });

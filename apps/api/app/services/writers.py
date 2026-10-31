@@ -8,7 +8,7 @@ BANNED = ("police", "court", "legal", "case", "penalty", "fine", "byaaj", "inter
 
 def reminder_template(name: str, shop: str, amount: str, items: list[str]) -> str:
     items_clause = f" ({', '.join(items)})" if items else ""
-    return f"Namaste {name}, {shop} se. Aapka {amount} baaki hai{items_clause}. Jab suvidha ho, is link se pay kar dein: {{link}} Dhanyavaad!"
+    return f"Namaste {name}, {shop} se. Aapka {amount} baaki hai{items_clause}. Paytm / UPI se turant pay karein: {{link}} Dhanyavaad!"
 
 
 def reminder_valid(msg: str, amount: str) -> bool:

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { ChatIcon } from '../components/Icons';
 import { ErrorBox, Loading } from '../components/States';
+import { useToast } from '../components/Toast';
 import { shortDate, timeIST } from '../lib/dates';
 import { formatPaise } from '../lib/money';
 import { useFetch } from '../lib/useFetch';
@@ -11,6 +13,21 @@ import { s } from '../strings';
 export default function Home() {
   const { merchant } = useSession();
   const { data, error, loading, reload } = useFetch(api.home, [], 10_000);
+  const [paying, setPaying] = useState<string | null>(null);
+  const toast = useToast();
+
+  async function markPaid(id: string) {
+    setPaying(id);
+    try {
+      await api.markExpensePaid(id);
+      toast(s.expense.marked);
+      reload();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : s.common.genericError);
+    } finally {
+      setPaying(null);
+    }
+  }
 
   return (
     <>
@@ -63,9 +80,12 @@ export default function Home() {
               </Link>
             )}
             {data.bills_due.map((b) => (
-              <p key={b.expense_id} className="sub">
-                {s.home.dueSoon}: {b.vendor} {formatPaise(b.total_paise)} · {shortDate(b.due_date)}
-              </p>
+              <div key={b.expense_id} className="billrow">
+                <p className="sub">{s.home.dueSoon}: {b.vendor} {formatPaise(b.total_paise)} · {shortDate(b.due_date)}</p>
+                <button className="btn ghost small" disabled={paying === b.expense_id} onClick={() => void markPaid(b.expense_id)}>
+                  {s.expense.markPaid}
+                </button>
+              </div>
             ))}
             <p className="sub" style={{ textAlign: 'center', marginTop: 'auto' }}>{s.home.micHint}</p>
           </>

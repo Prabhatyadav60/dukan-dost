@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { Customer, ExpenseCategory, Intent, VoiceParseResponse } from '../api/types';
+import type { Customer, ExpenseCategory, ExpenseStatus, Intent, VoiceParseResponse } from '../api/types';
 import { todayIST } from '../lib/dates';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { formatPaise, paiseToRupeesInput, rupeesToPaise } from '../lib/money';
 import { s } from '../strings';
 import { NewCustomerForm } from './NewCustomerForm';
+import { PaidChoice } from './PaidChoice';
 
 const NEW = '__new__';
 
@@ -18,14 +19,16 @@ interface Props {
 }
 
 export function ConfirmSheet({ parsed, source, onClose, onSaved }: Props) {
-  const draft = parsed?.draft;
-  const match = parsed?.customer_match;
+  const draft = parsed?.draft ?? null;
+  const match = parsed?.customer_match ?? null;
   const [key] = useState(newIdempotencyKey);
   const [intent, setIntent] = useState<Intent>(draft?.intent ?? 'credit');
   const [amount, setAmount] = useState(draft?.amount_paise ? paiseToRupeesInput(draft.amount_paise) : '');
   const [items, setItems] = useState((draft?.items ?? []).join(', '));
   const [vendor, setVendor] = useState(draft?.vendor ?? '');
   const [category, setCategory] = useState<ExpenseCategory>(draft?.category ?? 'other');
+  const [expStatus, setExpStatus] = useState<ExpenseStatus | null>(draft?.expense_status ?? null);
+  const [due, setDue] = useState(draft?.due_date ?? '');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>(
     match?.status === 'matched' && match.customer_id ? match.customer_id : match?.status === 'new' ? NEW : '',
@@ -47,7 +50,7 @@ export function ConfirmSheet({ parsed, source, onClose, onSaved }: Props) {
 
   const itemList = items.split(',').map((x) => x.trim()).filter(Boolean);
   const canSave =
-    !!amountPaise && !busy && (!needsCustomer || (!!customerId && customerId !== NEW)) && (intent !== 'expense' || !!vendor.trim());
+    !!amountPaise && !busy && (!needsCustomer || (!!customerId && customerId !== NEW)) && (intent !== 'expense' || (!!vendor.trim() && expStatus !== null));
 
   async function save() {
     if (!amountPaise) return;
@@ -64,8 +67,9 @@ export function ConfirmSheet({ parsed, source, onClose, onSaved }: Props) {
         onSaved(`Likh diya. ${r.customer.name} ka total ab ${formatPaise(r.customer.balance_paise)}.`);
       } else if (intent === 'expense') {
         await api.createExpense(
-          { vendor: vendor.trim(), line_items: [], total_paise: amountPaise, due_date: null, category,
-            source: src, image_keys: [] },
+          { vendor: vendor.trim(), line_items: [], total_paise: amountPaise,
+            due_date: expStatus === 'unpaid' ? due || null : null, category, source: src, image_keys: [],
+            status: expStatus ?? 'paid' },
           key,
         );
         onSaved(`Kharcha likh diya: ${formatPaise(amountPaise)}`);
@@ -87,6 +91,7 @@ export function ConfirmSheet({ parsed, source, onClose, onSaved }: Props) {
         {!parsed && <p className="warn-text">{s.voice.aiDown}</p>}
         <h2 className="h" style={{ fontSize: 21 }}>{s.voice.confirmTitle}</h2>
         {parsed?.warnings.includes('low_confidence') && <p className="warn-text">{s.voice.lowConfidence}</p>}
+        {parsed?.warnings.includes('amount_missing') && <p className="warn-text">{s.voice.amountMissing}</p>}
 
         <div className="field">
           <span>{s.voice.type}</span>
@@ -137,6 +142,10 @@ export function ConfirmSheet({ parsed, source, onClose, onSaved }: Props) {
                 {(Object.keys(s.voice.categories) as ExpenseCategory[]).map((k) => <option key={k} value={k}>{s.voice.categories[k]}</option>)}
               </select>
             </div>
+            <PaidChoice value={expStatus} onChange={setExpStatus} />
+            {expStatus === 'unpaid' && (
+              <div className="field"><span>{s.expense.dueDate}</span><input type="date" aria-label={s.expense.dueDate} value={due} onChange={(e) => setDue(e.target.value)} /></div>
+            )}
           </>
         )}
         {intent === 'cash_sale' && <div className="field"><span>{s.voice.date}</span><span>{todayIST()}</span></div>}

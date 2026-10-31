@@ -7,7 +7,7 @@ from pydantic import BaseModel, ValidationError
 
 from ..config import get_settings
 from . import calls
-from .schemas import BillDraft, EntryDraft, Explanation, Message, ShelfResult
+from .schemas import Answer, BillDraft, EntryDraft, Explanation, Message, ShelfResult
 
 PROMPTS = Path(__file__).parent / "prompts"
 
@@ -50,8 +50,15 @@ class ClaudeLLM:
                 return await calls.call(self.provider, kind, once)
             raise
 
-    async def parse_entry(self, transcript: str) -> EntryDraft:
-        return await self._structured("voice", [{"type": "text", "text": transcript}], EntryDraft, "text")
+    async def parse_entry(self, transcript: str, today: str) -> EntryDraft:
+        text = f"Today: {today}\nMessage: {transcript}"
+        return await self._structured("voice", [{"type": "text", "text": text}], EntryDraft, "text")
+
+    async def ask(self, question: str, context: dict, history: list[dict]) -> str:
+        payload = {"shop_data": context, "recent_conversation": history, "question": question}
+        r = await self._structured("ask", [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}],
+                                   Answer, "vision")  # longer budget: bigger context than other text calls
+        return r.answer
 
     async def read_bill(self, images) -> BillDraft:
         content = [_image(mt, b) for mt, b in images] + [{"type": "text", "text": "Read this bill."}]
@@ -67,9 +74,10 @@ class ClaudeLLM:
                                    Explanation, "text")
         return r.text
 
-    async def compare_shelf(self, before, after) -> ShelfResult:
+    async def compare_shelf(self, earlier: list[tuple[str, str, bytes]], today: tuple[str, bytes]) -> ShelfResult:
+        """earlier: [(date, media_type, bytes)] oldest first; today: (media_type, bytes)."""
         content: list[dict] = []
-        if before:
-            content += [{"type": "text", "text": "Yesterday:"}, _image(*before)]
-        content += [{"type": "text", "text": "Today:"}, _image(*after)]
+        for d, mt, data in earlier:
+            content += [{"type": "text", "text": f"Earlier photo, {d}:"}, _image(mt, data)]
+        content += [{"type": "text", "text": "Today's photo:"}, _image(*today)]
         return await self._structured("shelf", content, ShelfResult, "vision")

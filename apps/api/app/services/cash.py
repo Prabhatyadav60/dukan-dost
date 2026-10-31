@@ -36,10 +36,11 @@ async def daily_sales(repo: MerchantScopedRepo, merchant: dict, start: date, end
 async def forecast_inputs(repo: MerchantScopedRepo, merchant: dict, horizon: int, margin: float):
     today = clock.today_ist()
     since = merchant.get("cash_on_hand_at") or clock.ist_midnight_utc(today)
-    days, payments, expenses, custs = await asyncio.gather(
+    days, payments, expenses, paid, custs = await asyncio.gather(
         daily_sales(repo, merchant, today - timedelta(days=28), today - timedelta(days=1)),
         repo.find("ledger_entries", {"type": "payment", "created_at": {"$gte": since}}),
         repo.find("expenses", {"status": "unpaid"}),
+        repo.find("expenses", {"status": "paid", "paid_at": {"$gte": since}}),
         repo.find("customers"))
     received = sum(e["amount_paise"] for e in payments)
     unpaid = [(date.fromisoformat(e["due_date"]) if e.get("due_date") else None, e["total_paise"])
@@ -50,4 +51,5 @@ async def forecast_inputs(repo: MerchantScopedRepo, merchant: dict, horizon: int
         today=today, horizon=horizon,
         daily_totals={x["date"]: x["qr_paise"] + x["cash_paise"] for x in days},
         festivals=forecast.load_festivals(), cash_on_hand_paise=merchant.get("cash_on_hand_paise", 0),
-        received_paise=received, unpaid_expenses=unpaid, collectible_paise=collectible, margin=margin)
+        received_paise=received, unpaid_expenses=unpaid, collectible_paise=collectible, margin=margin,
+        spent_paise=sum(e["total_paise"] for e in paid))

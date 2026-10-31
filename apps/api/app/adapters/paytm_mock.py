@@ -20,8 +20,8 @@ class MockPaytm:
     def new_link_id(self) -> str:
         return secrets.token_urlsafe(16)
 
-    def link_url(self, link_id: str) -> str:
-        return f"{get_settings().public_web_url.rstrip('/')}/pay/{link_id}"
+    def link_url(self, link_id: str, base_url: str | None = None) -> str:
+        return f"{(base_url or get_settings().public_web_url).rstrip('/')}/pay/{link_id}"
 
     def webhook_payload(self, link: dict) -> tuple[bytes, str]:
         raw = json.dumps({"event_id": f"evt_{secrets.token_hex(8)}", "link_id": link["_id"],

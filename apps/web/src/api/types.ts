@@ -34,20 +34,25 @@ export interface ThreadMessage {
   role: 'merchant' | 'assistant';
   kind: 'voice' | 'photo' | 'text' | 'alert';
   text: string;
-  ref: { type: 'ledger_entry' | 'expense' | 'forecast' | 'cash_log'; id: string } | null;
+  ref: { type: 'ledger_entry' | 'expense' | 'forecast' | 'cash_log' | 'shelf_scan'; id: string } | null;
   created_at: string;
 }
 
 export type Intent = 'credit' | 'payment' | 'expense' | 'cash_sale';
 export type ExpenseCategory = 'stock' | 'rent' | 'staff' | 'other';
 
+export type ExpenseStatus = 'paid' | 'unpaid';
+
 export interface EntryDraft {
   intent: Intent;
   customer_name: string | null;
-  amount_paise: number;
+  /** null when the note had no amount (warning amount_missing). */
+  amount_paise: number | null;
   items: string[];
   vendor: string | null;
   category: ExpenseCategory | null;
+  expense_status?: ExpenseStatus | null;
+  due_date?: string | null;
   confidence: number;
 }
 
@@ -57,15 +62,20 @@ export interface CustomerCandidate {
   score: number;
 }
 
+export interface CustomerMatch {
+  status: 'matched' | 'ambiguous' | 'new' | 'not_applicable';
+  customer_id: string | null;
+  name: string | null;
+  candidates: CustomerCandidate[];
+}
+
+/** kind 'answer': a general shop question, already written (question + answer) into the thread. */
 export interface VoiceParseResponse {
+  kind: 'draft' | 'answer';
   transcript: string;
-  draft: EntryDraft;
-  customer_match: {
-    status: 'matched' | 'ambiguous' | 'new' | 'not_applicable';
-    customer_id: string | null;
-    name: string | null;
-    candidates: CustomerCandidate[];
-  };
+  answer: string | null;
+  draft: EntryDraft | null;
+  customer_match: CustomerMatch | null;
   warnings: ('low_confidence' | 'amount_missing' | 'customer_unknown')[];
 }
 
@@ -149,6 +159,37 @@ export interface Forecast {
   plan: { collect_paise: number; loan_paise: number };
   explanation: string;
   assumptions: { margin: number; cash_share: number; dues_grace_days: number };
+  bills?: ForecastBill[];
+  breakdown?: {
+    cash_on_hand_paise: number;
+    received_paise: number;
+    profit_to_buy_paise: number;
+    dues_paise: number;
+    spent_paise: number;
+  };
+}
+
+export interface ForecastBill {
+  id: string;
+  vendor: string;
+  total_paise: number;
+  due_date: string | null;
+  status: ExpenseStatus;
+}
+
+export interface ShelfFinding {
+  section: string;
+  status: 'restock' | 'tip';
+  note: string;
+}
+
+export interface ShelfScan {
+  scan_id: string;
+  first_scan: boolean;
+  compared_with_dates: string[];
+  comparable: boolean;
+  findings: ShelfFinding[];
+  created_at: string;
 }
 
 export interface LoanOffer {

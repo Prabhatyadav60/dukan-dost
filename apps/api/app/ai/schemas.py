@@ -4,13 +4,19 @@ from pydantic import BaseModel, Field
 
 
 class EntryDraft(BaseModel):
-    intent: Literal["credit", "payment", "expense", "cash_sale"]
+    intent: Literal["credit", "payment", "expense", "cash_sale", "question"]
     customer_name: str | None = None
-    amount_paise: int = Field(gt=0)
+    amount_paise: int | None = Field(None, gt=0)
     items: list[str] = []
     vendor: str | None = None
     category: Literal["stock", "rent", "staff", "other"] | None = None
+    expense_status: Literal["paid", "unpaid"] | None = None
+    due_date: str | None = None
     confidence: float = Field(ge=0, le=1)
+
+
+class Answer(BaseModel):
+    answer: str
 
 
 class BillLine(BaseModel):

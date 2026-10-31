@@ -25,7 +25,7 @@ export function LoanCard({ offer }: { offer: LoanOffer }) {
     return <div className="card" style={{ background: 'var(--success-soft)', border: 'none' }}><p className="ok">✓ {s.forecast.interested}</p><p className="sub">{formatPaise(o.amount_paise)} · {o.disclaimer}</p></div>;
   }
   return (
-    <button className="btn saffron" disabled={busy} onClick={interest}>
+    <button className="btn brand" disabled={busy} onClick={interest}>
       {s.forecast.seeLoan} · {formatPaise(o.amount_paise)}
     </button>
   );

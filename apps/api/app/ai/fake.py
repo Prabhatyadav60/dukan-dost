@@ -30,9 +30,11 @@ class FakeSTT:
 
 
 class FakeLLM:
-    async def parse_entry(self, transcript: str) -> EntryDraft:
+    async def parse_entry(self, transcript: str, today: str = "") -> EntryDraft:
         t = transcript.strip()
         low = t.lower()
+        if t.endswith("?") or re.match(r"^(kya|kitna|kitne|kitni|kaun|kis|kab|kaise|kyun|what|how|who|when|which|batao)\b", low):
+            return EntryDraft(intent="question", confidence=0.9)
         amount = _amount(low) or 100
         conf = 0.95 if _amount(low) else 0.5
         if "cash" in low and re.search(r"\b(aaya|aayi|aaj|sale|bikri)\b", low):
@@ -40,11 +42,12 @@ class FakeLLM:
         for word, cat in EXPENSE_WORDS.items():
             if word in low:
                 return EntryDraft(intent="expense", amount_paise=amount, vendor=word.title(), category=cat,
+                                  expense_status="paid" if re.search(r"\b(diya|diye|bhar)\b", low) else None,
                                   confidence=conf)
         m = re.match(r"(.+?)\s+ko\s+[\d,]+.*dene\s+hai", low)
         if m:
             return EntryDraft(intent="expense", amount_paise=amount, vendor=m.group(1).title(), category="stock",
-                              confidence=conf)
+                              expense_status="unpaid", confidence=conf)
         name_m = re.match(r"^\s*([^\d]+?)\s*(?:ne\s+)?(?=\d)", t)
         name = name_m.group(1).strip(" ,") if name_m else None
         if name and name.lower().endswith(" ne"):
@@ -72,8 +75,30 @@ class FakeLLM:
     async def write_explanation(self, payload: dict) -> str:
         raise NotImplementedError  # caller falls back to the template
 
-    async def compare_shelf(self, before, after) -> ShelfResult:
-        return ShelfResult(comparable=before is not None, findings=[
+    async def ask(self, question: str, context: dict, history: list[dict]) -> str:
+        q = question.lower()
+        if "udhaar" in q or "udhar" in q:
+            top = context["customers"][0] if context["customers"] else None
+            if not top:
+                return "Abhi kisi ka udhaar baaki nahi hai."
+            return (f"Kul udhaar {context['udhaar_total']} hai. Sabse zyada {top['name']} ka "
+                    f"{top['balance']} baaki hai.")
+        if "bikri" in q or "sale" in q:
+            return f"Aaj ki bikri {context['today']['total']} hai."
+        if "bill" in q:
+            bills = context["unpaid_bills"]
+            if not bills:
+                return "Koi bill baaki nahi hai."
+            b = bills[0]
+            return f"{b['vendor']} ka {b['amount']} dena hai, due {b['due_date']}."
+        return "Main sirf aapki dukaan ke hisaab mein madad kar sakta hoon."
+
+    async def compare_shelf(self, earlier, today) -> ShelfResult:
+        if not earlier:
+            return ShelfResult(comparable=False, findings=[
+                ShelfFinding(section="Cold drinks", status="tip",
+                             note="Cold drinks ko eye level par, counter ke paas rakhein.")])
+        return ShelfResult(comparable=True, findings=[
             ShelfFinding(section="Atta section", status="restock", note="Kal se kaafi khaali hai. Restock karein."),
             ShelfFinding(section="Biscuits", status="restock", note="Front row almost khaali hai."),
             ShelfFinding(section="Cold drinks", status="tip", note="Cold drinks ko eye level par, counter ke paas rakhein."),

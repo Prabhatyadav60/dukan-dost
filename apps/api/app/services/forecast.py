@@ -36,6 +36,7 @@ class ForecastInputs:
     unpaid_expenses: list[tuple[date | None, int]] = field(default_factory=list)
     collectible_paise: int = 0
     margin: float = 0.10
+    spent_paise: int = 0  # bills/expenses paid since cash_on_hand was counted
 
 
 def compute(inp: ForecastInputs) -> dict:
@@ -65,7 +66,9 @@ def compute(inp: ForecastInputs) -> dict:
         u = uplift.get(d, 1.0)
         daily.append({"date": d, "baseline_paise": b, "uplift": u, "forecast_paise": round(b * u)})
 
-    out = {"festival": None, "buy_by_date": None, "daily": daily, "stock_needed_paise": 0,
+    breakdown = {"cash_on_hand_paise": inp.cash_on_hand_paise, "received_paise": inp.received_paise,
+                 "profit_to_buy_paise": 0, "dues_paise": 0, "spent_paise": inp.spent_paise}
+    out = {"breakdown": breakdown, "festival": None, "buy_by_date": None, "daily": daily, "stock_needed_paise": 0,
            "cash_available_paise": 0, "gap_paise": 0, "dues_paise": 0, "profit_to_buy_paise": 0,
            "plan": {"collect_paise": 0, "loan_paise": 0},
            "assumptions": {"margin": inp.margin, "dues_grace_days": DUES_GRACE_DAYS}}
@@ -79,9 +82,10 @@ def compute(inp: ForecastInputs) -> dict:
     profit_to_buy = round(sum(x["forecast_paise"] for x in daily if x["date"] <= buy_by) * inp.margin)
     dues_cutoff = buy_by + timedelta(days=DUES_GRACE_DAYS)
     dues = sum(amt for due, amt in inp.unpaid_expenses if due is not None and due <= dues_cutoff)
-    cash_available = inp.cash_on_hand_paise + inp.received_paise + profit_to_buy - dues
+    cash_available = inp.cash_on_hand_paise + inp.received_paise + profit_to_buy - dues - inp.spent_paise
     gap = max(0, stock_needed - cash_available)
     collect = min(gap, inp.collectible_paise)
+    breakdown.update(profit_to_buy_paise=profit_to_buy, dues_paise=dues)
     out.update({
         "festival": {"name": festival["name"], "date": festival["date"], "window": festival["window"]},
         "buy_by_date": buy_by, "stock_needed_paise": stock_needed, "cash_available_paise": cash_available,

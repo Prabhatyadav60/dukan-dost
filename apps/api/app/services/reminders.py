@@ -5,7 +5,7 @@ from ..money import format_paise
 from . import customers, events, payments, writers
 
 
-async def plan(repo: MerchantScopedRepo, merchant: dict) -> list[dict]:
+async def plan(repo: MerchantScopedRepo, merchant: dict, base_url: str | None = None) -> list[dict]:
     out = []
     for c in await repo.find("customers"):
         if c["balance_paise"] <= 0:
@@ -24,7 +24,7 @@ async def plan(repo: MerchantScopedRepo, merchant: dict) -> list[dict]:
         items = sorted({i for o in f["open"] for i in o["entry"].get("items", [])})
         amount = format_paise(c["balance_paise"])
         link = await payments.create_link(repo, c["_id"], c["balance_paise"])
-        url = payments.provider.link_url(link["_id"])
+        url = payments.provider.link_url(link["_id"], base_url)
         template = await writers.reminder(c["name"], merchant["shop_name"], amount, items, base["attempt"])
         message = template.replace("{link}", url)
         drafted = await repo.find_one("reminders", {"customer_id": c["_id"], "status": "drafted"})
@@ -37,7 +37,7 @@ async def plan(repo: MerchantScopedRepo, merchant: dict) -> list[dict]:
             rid = (await repo.insert("reminders", {**fields, "customer_id": c["_id"], "status": "drafted",
                                                    "created_at": clock.now(), "sent_at": None}))["_id"]
             await events.log(repo, "reminder_drafted", rid)
-        out.append({**base, "reminder_id": rid, "message": message, "payment_link": payments.link_api(link),
+        out.append({**base, "reminder_id": rid, "message": message, "payment_link": payments.link_api(link, base_url),
                     "wa_url": payments.wa_url(c["phone_e164"], message)})
     order = {None: 0}
     return sorted(out, key=lambda r: (order.get(r["skipped_reason"], 1), -r["amount_paise"]))

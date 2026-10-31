@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     pay_link_ttl_hours: int = 72
     upload_dir: str = "./data/uploads"
     ai_rate_limit_per_min: int = 20
-    feature_shelf_scan: bool = False
+    feature_shelf_scan: bool = True
     forecast_margin: float = 0.10
     log_level: str = "INFO"
 

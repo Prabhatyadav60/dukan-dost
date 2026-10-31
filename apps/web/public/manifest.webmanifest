@@ -3,7 +3,7 @@
   "short_name": "Dukan Dost",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFFCF6",
-  "theme_color": "#13233F",
+  "background_color": "#F5F8FC",
+  "theme_color": "#002E6E",
   "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }

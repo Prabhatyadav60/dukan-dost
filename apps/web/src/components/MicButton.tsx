@@ -6,12 +6,14 @@ import { MicIcon } from './Icons';
 interface Props {
   onAudio: (blob: Blob, filename: string) => void;
   onError: (msg: string) => void;
+  /** Small inline variant for the chat composer. */
+  compact?: boolean;
 }
 
 const BARS = 18;
 
 /** Press and hold to record; release to send. Auto-stops at 30 s. */
-export function MicButton({ onAudio, onError }: Props) {
+export function MicButton({ onAudio, onError, compact }: Props) {
   const [recording, setRecording] = useState(false);
   const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(4));
   const rec = useRef<MediaRecorder | null>(null);
@@ -89,8 +91,8 @@ export function MicButton({ onAudio, onError }: Props) {
     <>
       <button
         type="button"
-        className={'mic' + (recording ? ' rec' : '')}
-        aria-label="Bolne ke liye dabaakar rakhein"
+        className={'mic' + (compact ? ' compact' : '') + (recording ? ' rec' : '')}
+        aria-label={compact ? 'Chat mein bolein (dabaakar rakhein)' : 'Bolne ke liye dabaakar rakhein'}
         onPointerDown={(e) => {
           e.preventDefault();
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);

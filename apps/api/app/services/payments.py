@@ -11,8 +11,18 @@ from ..money import format_paise
 from . import customers, events, ledger, thread
 
 
-def link_api(link: dict) -> dict:
-    return {"id": link["_id"], "url": provider.link_url(link["_id"]), "status": link_status(link),
+def public_base(origin: str | None) -> str:
+    """Pay links point at the same web app the merchant is using (e.g. the ngrok HTTPS URL),
+    falling back to PUBLIC_WEB_URL for server-side callers."""
+    configured = get_settings().public_web_url
+    if origin and origin.startswith(("http://", "https://")) and "localhost" not in origin \
+            and "127.0.0.1" not in origin:
+        return origin
+    return configured
+
+
+def link_api(link: dict, base_url: str | None = None) -> dict:
+    return {"id": link["_id"], "url": provider.link_url(link["_id"], base_url), "status": link_status(link),
             "expires_at": clock.iso(link["expires_at"])}
 
 

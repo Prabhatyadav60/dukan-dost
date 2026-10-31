@@ -30,7 +30,7 @@ export default function Login() {
 
   return (
     <main className="screen plain" style={{ justifyContent: 'center' }}>
-      <p className="h" style={{ color: 'var(--saffron)' }}>{s.appName}</p>
+      <p className="h" style={{ color: 'var(--brand-ink)' }}>{s.appName}</p>
       <h1 className="big">{s.login.title}</h1>
       <p className="sub">{s.login.sub}</p>
       <form className="form" onSubmit={submit} style={{ marginTop: 16 }}>

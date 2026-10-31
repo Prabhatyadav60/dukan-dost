@@ -4,7 +4,7 @@ attempt (1 or 2).
 - Hinglish in Latin script. Warm and respectful, like the shop owner himself writing.
 - Start with "Namaste {customer_name}," and say it is from {shop_name}.
 - Mention the amount exactly as given, and the items if any.
-- Include the literal placeholder {link} exactly once, where the customer should tap to pay.
+- Include the literal placeholder {link} exactly once, introduced as a Paytm payment link, e.g.
+  "Paytm / UPI se turant pay karein: {link}".
 - attempt 1: gentle. attempt 2: a little firmer, still polite.
-- At most 300 characters. No threats, penalties, interest, legal words, or mention of loans
-  or Paytm. End with a thank-you.
+- At most 300 characters. No threats, penalties, interest, legal words, or mention of loans. End with a thank-you.
