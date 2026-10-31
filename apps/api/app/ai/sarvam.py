@@ -1,4 +1,6 @@
 """Sarvam speech to text (saaras:v3, hi-IN) over REST."""
+import base64
+
 import httpx
 
 from ..config import get_settings
@@ -22,3 +24,23 @@ class SarvamSTT:
             return r.json()["transcript"]
 
         return await calls.call("sarvam", "speech", once)
+
+
+SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
+
+
+class SarvamTTS:
+    """Sarvam Bulbul v3. Latin-script Hinglish goes in as-is: it is pronounced correctly
+    (verified by round-tripping through STT), while transliterating first garbles words."""
+
+    async def speak(self, text: str) -> bytes:
+        key = get_settings().sarvam_api_key
+
+        async def once() -> bytes:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(SARVAM_TTS_URL, headers={"api-subscription-key": key},
+                                      json={"text": text, "target_language_code": "hi-IN", "model": "bulbul:v3"})
+            r.raise_for_status()
+            return base64.b64decode(r.json()["audios"][0])
+
+        return await calls.call("sarvam", "tts", once)

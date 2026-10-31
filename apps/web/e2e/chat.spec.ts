@@ -28,6 +28,19 @@ test('chat: shop questions, off-topic refusal, entries, bill + paid/due, shelf',
     await expect(page.locator('.bub, [class*=bub]').filter({ hasText: /Gupta ji/ }).last()).toBeVisible({ timeout: 45_000 });
   });
 
+  await test.step('read aloud: 🔊 on an answer plays Sarvam audio', async () => {
+    const answer = page.locator('.bub').filter({ hasText: /Gupta ji/ }).last();
+    const audio = page.waitForResponse((r) => r.url().endsWith('/v1/tts') && r.status() === 200);
+    await answer.getByRole('button', { name: 'Suno' }).click();
+    const res = await audio;
+    expect(res.headers()['content-type']).toContain('audio/wav');
+    // the page consumes the body as a blob, so check the declared size rather than re-reading it
+    expect(Number(res.headers()['content-length'])).toBeGreaterThan(10_000);
+    await expect(answer.getByRole('button', { name: 'Roko' })).toBeVisible();
+    await answer.getByRole('button', { name: 'Roko' }).click();
+    await expect(answer.getByRole('button', { name: 'Suno' })).toBeVisible();
+  });
+
   await test.step('off-topic question is politely declined', async () => {
     await ask(page, 'India ka cricket match kaun jeeta?');
     await expect(page.getByText(/sirf .*dukaan|dukaan ke hisaab/i).last()).toBeVisible({ timeout: 45_000 });

@@ -56,6 +56,22 @@ async function request<T>(path: string, opts: Opts = {}): Promise<T> {
   return json as T;
 }
 
+/** Read-aloud: WAV audio of an assistant message (Sarvam Bulbul, cached server-side). */
+export async function ttsAudio(text: string): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetch(API_BASE + '/v1/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ text: text.slice(0, 600) }),
+    });
+  } catch {
+    throw new ApiError(0, 'network', 'Network nahi mila. Internet check karein.');
+  }
+  if (!res.ok) throw new ApiError(res.status, 'tts_unavailable', 'Awaaz abhi available nahi hai.');
+  return res.blob();
+}
+
 function safeJson(t: string): unknown {
   try {
     return JSON.parse(t);

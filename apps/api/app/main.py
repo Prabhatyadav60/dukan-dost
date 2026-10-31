@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import errors, middleware
 from .config import get_settings
 from .db import create_indexes, get_db
-from .routes import ai, merchant, public
+from .routes import ai, merchant, public, tts
 
 
 @asynccontextmanager
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(merchant.router)
     app.include_router(ai.router)
     app.include_router(public.router)
+    app.include_router(tts.router)
     return app
 
 

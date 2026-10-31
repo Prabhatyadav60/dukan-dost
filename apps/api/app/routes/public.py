@@ -47,5 +47,6 @@ async def healthz():
         mongo = "down"
     s = get_settings()
     body = {"status": "ok" if mongo == "ok" else "degraded", "mongo": mongo, "version": "dev",
-            "ai_provider": s.ai_provider, "stt": "sarvam" if s.sarvam_api_key else "fake"}
+            "ai_provider": s.ai_provider, "stt": "sarvam" if s.sarvam_api_key else "fake",
+            "tts": "sarvam" if s.sarvam_api_key else "off"}
     return JSONResponse(body, status_code=200 if mongo == "ok" else 503)

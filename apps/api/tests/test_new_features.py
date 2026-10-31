@@ -66,3 +66,23 @@ async def test_pay_link_uses_app_origin_and_mentions_paytm(client):
     r = next(x for x in plan if x["customer"]["name"] == "Sharma ji")
     assert r["payment_link"]["url"].startswith(origin + "/pay/")
     assert "Paytm" in r["message"] and "localhost" not in r["message"]
+
+
+async def test_tts_off_without_key(client):
+    r = await client.post("/v1/tts", json={"text": "Namaste"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "tts_unavailable"
+
+
+async def test_tts_speaks_and_caches(client, monkeypatch):
+    import app.routes.tts as tts_route
+    calls = []
+
+    class FakeTTS:
+        async def speak(self, text):
+            calls.append(text)
+            return b"RIFF....WAVE"
+    monkeypatch.setattr(tts_route, "get_tts", lambda: FakeTTS())
+    for _ in range(2):
+        r = await client.post("/v1/tts", json={"text": "Ramesh ji,  Gupta ji ka ₹3,400 baaki hai."})
+        assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content == b"RIFF....WAVE"
+    assert calls == ["Ramesh ji, Gupta ji ka ₹3,400 baaki hai."]

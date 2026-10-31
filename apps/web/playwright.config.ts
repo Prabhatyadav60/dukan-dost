@@ -15,7 +15,7 @@ export default defineConfig({
     viewport: { width: 400, height: 860 },
     permissions: ['microphone'],
     launchOptions: {
-      args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${wav}`],
+      args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${wav}`],
     },
     actionTimeout: 30_000,
     trace: 'retain-on-failure',

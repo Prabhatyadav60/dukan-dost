@@ -20,3 +20,12 @@ def get_stt():
         return SarvamSTT()
     from .fake import FakeSTT
     return FakeSTT()
+
+
+@lru_cache
+def get_tts():
+    """Read-aloud needs a Sarvam key; without one the endpoint reports itself unavailable."""
+    if get_settings().sarvam_api_key:
+        from .sarvam import SarvamTTS
+        return SarvamTTS()
+    return None

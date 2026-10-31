@@ -169,3 +169,11 @@ label.check input { width: 22px; min-height: 22px; height: 22px; margin-top: 2px
 
 /* keep the newest bubble above the fixed composer + tab bar when auto-scrolling */
 .chat-end { scroll-margin-bottom: calc(var(--tab-h) + 96px); }
+
+/* read aloud */
+.bub .t { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.speak { border: 1px solid var(--line); background: var(--brand-soft); color: var(--navy); border-radius: 999px;
+  min-width: 44px; height: 30px; padding: 0 10px; font-size: 14px; cursor: pointer; }
+.speak.on { background: var(--brand); border-color: var(--brand); }
+.speak:disabled { opacity: .6; cursor: progress; }
+.check.autoread { margin-top: 6px; font-size: 13px; color: var(--muted); }

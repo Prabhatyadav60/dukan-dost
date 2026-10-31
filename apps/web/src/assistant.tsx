@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { api, ApiError } from './api/client';
+import { api, ApiError, ttsAudio } from './api/client';
 import type { BillScanResponse, VoiceParseResponse } from './api/types';
 import { BillReviewSheet } from './components/BillReviewSheet';
 import { ConfirmSheet } from './components/ConfirmSheet';
@@ -24,6 +24,23 @@ interface AssistantApi {
   submitAudio: (blob: Blob, filename: string) => Promise<void>;
   openTyping: () => void;
   pickPhoto: () => void;
+  /** Read-aloud: the text currently playing / loading, keyed by the message text. */
+  speaking: string | null;
+  speakLoading: string | null;
+  toggleSpeak: (text: string) => void;
+  /** Auto-play the answer when the merchant asked by voice. */
+  autoRead: boolean;
+  setAutoRead: (v: boolean) => void;
+}
+
+const AUTO_READ_KEY = 'dd_auto_read';
+
+function readAutoPref(): boolean {
+  try {
+    return localStorage.getItem(AUTO_READ_KEY) !== 'off';
+  } catch {
+    return true;
+  }
 }
 
 const Ctx = createContext<AssistantApi | null>(null);
@@ -49,6 +66,40 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
   const loc = useLocation();
 
   const bump = useCallback(() => setTick((t) => t + 1), []);
+
+  // --- read aloud (one player for the whole app; replaying a message reuses its audio)
+  const player = useRef<HTMLAudioElement | null>(null);
+  const audioUrls = useRef(new Map<string, string>());
+  const [speaking, setSpeaking] = useState<string | null>(null);
+  const [speakLoading, setSpeakLoading] = useState<string | null>(null);
+  const [autoRead, setAutoReadState] = useState(readAutoPref);
+
+  const stopSpeaking = useCallback(() => {
+    player.current?.pause();
+    setSpeaking(null);
+  }, []);
+
+  const speak = useCallback(async (text: string) => {
+    stopSpeaking();
+    setSpeakLoading(text);
+    try {
+      let url = audioUrls.current.get(text);
+      if (!url) {
+        url = URL.createObjectURL(await ttsAudio(text));
+        audioUrls.current.set(text, url);
+      }
+      const audio = player.current ?? (player.current = new Audio());
+      audio.src = url;
+      audio.onended = () => setSpeaking(null);
+      setSpeaking(text);
+      await audio.play();
+    } catch {
+      setSpeaking(null);
+      toast(s.assistant.ttsFailed);
+    } finally {
+      setSpeakLoading((t) => (t === text ? null : t));
+    }
+  }, [stopSpeaking, toast]);
   const goChat = useCallback(() => {
     if (loc.pathname !== '/assistant') nav('/assistant');
   }, [loc.pathname, nav]);
@@ -61,7 +112,11 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
     try {
       const r = await p;
       bump();
-      if (r.kind === 'answer' || !r.draft) return true;
+      if (r.kind === 'answer' || !r.draft) {
+        // asked by voice → answer by voice
+        if (source === 'voice' && autoRead && r.answer) void speak(r.answer);
+        return true;
+      }
       setSheet({ k: 'confirm', parsed: r, source });
       return true;
     } catch (e) {
@@ -118,6 +173,18 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
     },
     openTyping: () => setSheet({ k: 'typing' }),
     pickPhoto: () => fileInput.current?.click(),
+    speaking,
+    speakLoading,
+    toggleSpeak: (text) => (speaking === text ? stopSpeaking() : void speak(text)),
+    autoRead,
+    setAutoRead: (v) => {
+      setAutoReadState(v);
+      try {
+        localStorage.setItem(AUTO_READ_KEY, v ? 'on' : 'off');
+      } catch {
+        /* preference just won't persist */
+      }
+    },
   };
 
   return (

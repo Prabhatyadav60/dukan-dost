@@ -35,6 +35,10 @@ export default function Assistant() {
         <div>
           <h1 className="h" style={{ fontSize: 20 }}>{s.assistant.title}</h1>
           <p className="sub">{s.assistant.sub}</p>
+          <label className="check autoread">
+            <input type="checkbox" checked={a.autoRead} onChange={(e) => a.setAutoRead(e.target.checked)} />
+            <span>{s.assistant.autoRead}</span>
+          </label>
         </div>
         {loading && !data && <Loading />}
         {error && !data && <ErrorBox error={error} onRetry={reload} />}
@@ -47,7 +51,20 @@ export default function Assistant() {
               {m.kind === 'voice' && <b>{s.assistant.voiceNote}</b>}
               {m.kind === 'photo' && <b>{s.assistant.photo}</b>}
               <span style={{ whiteSpace: 'pre-line' }}>{m.kind === 'voice' ? `“${m.text}”` : m.text}</span>
-              <span className="t">{timeIST(m.created_at)}</span>
+              <span className="t">
+                {!me && m.text && (
+                  <button
+                    type="button"
+                    className={'speak' + (a.speaking === m.text ? ' on' : '')}
+                    aria-label={a.speaking === m.text ? s.assistant.stopListen : s.assistant.listen}
+                    disabled={a.speakLoading === m.text}
+                    onClick={() => a.toggleSpeak(m.text)}
+                  >
+                    {a.speakLoading === m.text ? '…' : a.speaking === m.text ? '■' : '🔊'}
+                  </button>
+                )}
+                {timeIST(m.created_at)}
+              </span>
             </div>
           );
         })}

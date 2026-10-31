@@ -46,6 +46,10 @@ export const s = {
     micHint: 'Mic dabakar boliye: “Sharma ji 450 udhaar”',
   },
   assistant: {
+    listen: 'Suno',
+    stopListen: 'Roko',
+    autoRead: 'Bolkar poochhe sawaal ka jawab awaaz mein sunayein',
+    ttsFailed: 'Awaaz nahi chal paayi.',
     title: 'Dukan Dost',
     sub: 'Hisaab likhwaiye ya dukaan ke baare mein kuch bhi poochhiye',
     empty: 'Abhi koi baat nahi hui. Mic dabakar boliye ya likhiye.',
