@@ -78,6 +78,6 @@ class ClaudeLLM:
         """earlier: [(date, media_type, bytes)] oldest first; today: (media_type, bytes)."""
         content: list[dict] = []
         for d, mt, data in earlier:
-            content += [{"type": "text", "text": f"Earlier photo, {d}:"}, _image(mt, data)]
+            content += [{"type": "text", "text": f"Earlier photo, taken {d}:"}, _image(mt, data)]
         content += [{"type": "text", "text": "Today's photo:"}, _image(*today)]
         return await self._structured("shelf", content, ShelfResult, "vision")

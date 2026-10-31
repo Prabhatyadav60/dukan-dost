@@ -242,6 +242,7 @@ export interface ShelfScan {
   scan_id: string;
   first_scan: boolean;
   compared_with_dates: string[];
+  compared_photos?: number;
   comparable: boolean;
   findings: ShelfFinding[];
   created_at: string;

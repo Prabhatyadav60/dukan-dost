@@ -159,7 +159,7 @@ function ShelfResult({ scan }: { scan: ShelfScan }) {
         </div>
       ) : (
         <div>
-          <h2 className="mid">{s.shelf.compared(scan.compared_with_dates.length)}</h2>
+          <h2 className="mid">{s.shelf.compared(scan.compared_photos ?? scan.compared_with_dates.length)}</h2>
           {scan.compared_with_dates.length > 0 && <p className="sub">{scan.compared_with_dates.map(shortDate).join(' · ')}</p>}
           {!scan.comparable && <p className="warn-text">{s.shelf.notComparable}</p>}
         </div>

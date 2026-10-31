@@ -127,3 +127,14 @@ def test_pay_link_base_rules(monkeypatch):
     assert public_base(None) == "http://localhost:5173"
     monkeypatch.setattr(get_settings(), "public_web_url", "https://shop.ngrok-free.app")
     assert public_base("http://localhost:5173") == "https://shop.ngrok-free.app"  # laptop merchant, phone customer
+
+
+async def test_shelf_compares_with_photo_taken_earlier_today(client):
+    # a demo takes photos minutes apart: the second must be compared, not treated as a first photo
+    first = (await client.post("/v1/shelf/scan", files={"image": ("s.jpg", JPEG, "image/jpeg")})).json()
+    assert first["first_scan"]
+    second = (await client.post("/v1/shelf/scan", files={"image": ("s.jpg", JPEG, "image/jpeg")})).json()
+    assert not second["first_scan"] and second["compared_photos"] == 1
+    assert any(f["status"] == "restock" for f in second["findings"])
+    third = (await client.post("/v1/shelf/scan", files={"image": ("s.jpg", JPEG, "image/jpeg")})).json()
+    assert third["compared_photos"] == 2

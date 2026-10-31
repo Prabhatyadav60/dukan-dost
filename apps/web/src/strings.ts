@@ -163,7 +163,7 @@ export const s = {
     reading: 'Shelf dekh raha hoon…',
     firstTitle: 'Pehli photo — placement tips',
     firstNote: 'Kal phir photo lein, hum pichhle 7 din se compare karenge.',
-    compared: (n: number) => `Pichhle ${n} din ki photos se compare kiya`,
+    compared: (n: number) => `Pichhli ${n} photo${n > 1 ? 's' : ''} se compare kiya`,
     notComparable: 'Photo alag angle se lagti hai — sirf placement tips diye hain.',
     none: 'Abhi koi shelf photo nahi hai. Pehli photo lein.',
     noFindings: 'Sab theek lag raha hai. Koi suggestion nahi.',

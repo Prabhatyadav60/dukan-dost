@@ -12,27 +12,29 @@ MAX_EARLIER = 3  # most recent distinct earlier days sent alongside today's phot
 
 def scan_api(scan: dict) -> dict:
     return {"scan_id": scan["_id"], "first_scan": scan["first_scan"],
-            "compared_with_dates": scan["compared_with_dates"], "comparable": scan["comparable"],
+            "compared_with_dates": scan["compared_with_dates"],
+            "compared_photos": scan.get("compared_photos", len(scan.get("compared_with", []))), "comparable": scan["comparable"],
             "findings": scan["findings"], "created_at": clock.iso(scan["created_at"])}
 
 
 async def scan(repo: MerchantScopedRepo, label: str, data: bytes) -> dict:
     mt, ext = media.sniff_image(data)
     key = await media.save_image(repo, "shelf", data, ext, mt)
-    today = clock.today_ist()
-    lo = clock.ist_midnight_utc(today - timedelta(days=LOOKBACK_DAYS))
-    hi = clock.ist_midnight_utc(today)  # earlier days only; a re-take today is not "yesterday"
-    prior = await repo.find("shelf_scans", {"shelf_label": label, "created_at": {"$gte": lo, "$lt": hi}},
-                            sort=[("created_at", -1)])
-    per_day: dict[str, dict] = {}
-    for p in prior:  # newest scan of each day
-        per_day.setdefault(clock.to_ist_date(p["created_at"]).isoformat(), p)
-    days = sorted(per_day)[-MAX_EARLIER:]
+    now = clock.now()
+    lo = now - timedelta(days=LOOKBACK_DAYS)
+    # the most recent earlier photos, including ones taken earlier today: a demo (or a busy evening)
+    # takes several photos within minutes, and each must be compared with the one before it
+    prior = await repo.find("shelf_scans", {"shelf_label": label, "created_at": {"$gte": lo, "$lt": now}},
+                            sort=[("created_at", -1)], limit=MAX_EARLIER)
     earlier = []
-    for d in days:
-        img = await media.load_image(repo, per_day[d]["image_key"])
+    used = []
+    for p in reversed(prior):  # oldest first, today's previous photo last
+        img = await media.load_image(repo, p["image_key"])
         if img:
-            earlier.append((d, img[0], img[1]))
+            when = clock.to_ist_date(p["created_at"]).strftime("%-d %b") + " " + \
+                (p["created_at"] + timedelta(hours=5, minutes=30)).strftime("%-I:%M %p").lower()
+            earlier.append((when, img[0], img[1]))
+            used.append(p)
 
     result = await get_llm().compare_shelf(earlier, (mt, data))
     first = not earlier
@@ -40,8 +42,9 @@ async def scan(repo: MerchantScopedRepo, label: str, data: bytes) -> dict:
                 if f.section.strip() and "organis" not in f.note.lower() and not (first and f.status == "restock")][:5]
     doc = await repo.insert("shelf_scans", {
         "shelf_label": label, "image_key": key, "first_scan": first,
-        "compared_with": [per_day[d]["_id"] for d, _, _ in earlier],
-        "compared_with_dates": [d for d, _, _ in earlier], "comparable": bool(result.comparable and earlier),
+        "compared_with": [p["_id"] for p in used],
+        "compared_with_dates": sorted({clock.to_ist_date(p["created_at"]).isoformat() for p in used}),
+        "compared_photos": len(used), "comparable": bool(result.comparable and earlier),
         "findings": findings, "created_at": clock.now()})
 
     await thread.add(repo, "merchant", "photo", "Shelf photo")
@@ -50,7 +53,8 @@ async def scan(repo: MerchantScopedRepo, label: str, data: bytes) -> dict:
     if first:
         text = "Pehli shelf photo save kar li. Kal phir photo lein, main pichhle 7 din se compare karunga."
     else:
-        text = f"Pichhle {len(earlier)} din ki photos se compare kiya. "
+        n = len(earlier)
+        text = f"Pichhli {n} photo{'s' if n > 1 else ''} se compare kiya. "
         text += f"Restock karein: {', '.join(restock)}." if restock else "Koi section khaali nahi lag raha."
     if tips:
         text += " Tip: " + " ".join(tips[:2])
