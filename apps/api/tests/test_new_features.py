@@ -86,3 +86,32 @@ async def test_tts_speaks_and_caches(client, monkeypatch):
         r = await client.post("/v1/tts", json={"text": "Ramesh ji,  Gupta ji ka ₹3,400 baaki hai."})
         assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content == b"RIFF....WAVE"
     assert calls == ["Ramesh ji, Gupta ji ka ₹3,400 baaki hai."]
+
+
+def _tone(fmt_args: list[str], seconds: float = 1.0) -> bytes:
+    """A real encoded audio clip, made with the same bundled ffmpeg the API uses."""
+    import subprocess
+    import tempfile
+    from app.services.media import ffmpeg_bin
+    with tempfile.NamedTemporaryFile(suffix=".bin") as out:
+        subprocess.run([ffmpeg_bin(), "-y", "-v", "error", "-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}",
+                        *fmt_args, out.name], check=True)
+        return open(out.name, "rb").read()
+
+
+async def test_voice_accepts_any_decodable_format(client):
+    # raw AAC (ADTS) used to be rejected by a fixed signature list; webm/mp4/ogg are the browser defaults
+    for name, args in [("voice.aac", ["-c:a", "aac", "-f", "adts"]), ("voice.webm", ["-c:a", "libopus", "-f", "webm"]),
+                       ("voice.m4a", ["-c:a", "aac", "-f", "mp4"]), ("voice.ogg", ["-c:a", "libopus", "-f", "ogg"])]:
+        r = await client.post("/v1/voice/parse", files={"audio": (name, _tone(args), "application/octet-stream")})
+        assert r.status_code == 200, (name, r.json())
+
+
+async def test_voice_short_or_broken_audio_gets_clear_message(client):
+    short = _tone(["-c:a", "libopus", "-f", "webm"], seconds=0.2)
+    r = await client.post("/v1/voice/parse", files={"audio": ("voice.webm", short, "audio/webm")})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "audio_too_short"
+    broken = _tone(["-c:a", "libopus", "-f", "webm"])[300:]  # a recording missing its header
+    r = await client.post("/v1/voice/parse", files={"audio": ("voice.webm", broken, "audio/webm")})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "audio_unreadable"
+    assert "Dobara bolein" in r.json()["error"]["message"]

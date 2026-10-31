@@ -82,6 +82,7 @@ export const s = {
     newTotal: (name: string, amt: string) => `${name} ka naya total: ${amt}`,
     lowConfidence: 'Pakka nahi samjha — ek baar check kar lein.',
     sttFailed: 'Awaaz samajh nahi aayi. Dobara bolein ya likh kar bhejein.',
+    tooShort: 'Mic dabaakar rakhein, bolein, phir chhodein.',
     micBlocked: 'Mic ki permission nahi mili. Likh kar bhejein.',
     aiDown: 'AI abhi available nahi hai. Neeche haath se bharein.',
     intents: { credit: 'Udhaar diya', payment: 'Udhaar wapas mila', expense: 'Kharcha', cash_sale: 'Aaj ki cash bikri' },

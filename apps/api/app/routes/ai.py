@@ -34,7 +34,7 @@ async def voice_parse(audio: UploadFile | None = File(None), text: str | None = 
     if audio is None and not (text and text.strip()):
         raise AppError("validation_error", 422, "Send audio or text.", {"fields": [{"loc": ["audio"]}]})
     if audio is not None:
-        wav = await media.to_wav(await audio.read())
+        wav = await media.to_wav(await audio.read(), audio.filename or "", audio.content_type or "")
         try:
             transcript = await get_stt().transcribe(wav, audio.filename or "voice")
         finally:

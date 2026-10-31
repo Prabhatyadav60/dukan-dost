@@ -29,7 +29,7 @@ function TabBar() {
           onAudio={(b, name) => void a.submitAudio(b, name)}
           onError={(m) => {
             toast(m);
-            a.openTyping();
+            if (m === s.voice.micBlocked) a.openTyping(); // no mic at all → offer typing instead
           }}
         />}
         {!inChat && <button className="kbd" aria-label="Likh kar bhejein" onClick={a.openTyping}><KeyboardIcon /></button>}

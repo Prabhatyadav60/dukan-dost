@@ -3,14 +3,23 @@ import asyncio
 import os
 import tempfile
 import uuid
+from pathlib import Path
+
+import structlog
 
 from .. import clock
 from ..errors import AppError
+
+log = structlog.get_logger()
 
 IMAGE_MAGIC = {b"\xff\xd8\xff": ("image/jpeg", "jpg"), b"\x89PNG": ("image/png", "png")}
 MAX_IMAGE = 5 * 1024 * 1024
 MAX_AUDIO = 2 * 1024 * 1024
 MAX_AUDIO_SECONDS = 30
+MIN_AUDIO_SECONDS = 0.4
+MIN_AUDIO_BYTES = 200
+TOO_SHORT = "Awaaz bahut chhoti thi. Mic dabaakar rakhein, bolein, phir chhodein."
+UNREADABLE = "Awaaz record nahi ho paayi. Dobara bolein ya likh kar bhejein."
 
 
 def sniff_image(data: bytes) -> tuple[str, str]:
@@ -37,16 +46,12 @@ async def load_image(repo, key: str) -> tuple[str, bytes] | None:
     return (doc["media_type"], bytes(doc["data"])) if doc else None
 
 
-def _audio_ok(data: bytes) -> bool:
-    return (data[:4] in (b"\x1aE\xdf\xa3", b"OggS", b"RIFF", b"fLaC") or data[4:8] == b"ftyp"
-            or data[:3] == b"ID3" or data[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"))
-
-
 async def _run(*args: str) -> tuple[int, bytes]:
-    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE,
-                                                stderr=asyncio.subprocess.DEVNULL)
-    out, _ = await proc.communicate()
-    return proc.returncode or 0, out
+    """Returns (exit code, stderr)."""
+    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.DEVNULL,
+                                                stderr=asyncio.subprocess.PIPE)
+    _, err = await proc.communicate()
+    return proc.returncode or 0, err
 
 
 def ffmpeg_bin() -> str:
@@ -58,26 +63,34 @@ def ffmpeg_bin() -> str:
         return "ffmpeg"
 
 
-async def to_wav(data: bytes) -> str:
-    """Validate and convert to 16 kHz mono WAV. Caller deletes the returned temp file."""
+async def to_wav(data: bytes, filename: str = "", content_type: str = "") -> str:
+    """Decode whatever the browser recorded (webm/opus, mp4/aac, raw AAC, ogg, wav, mp3, 3gp, …) to
+    16 kHz mono WAV. ffmpeg decides what it can read — no fixed list of formats to fall out of.
+    Caller deletes the returned temp file."""
     if len(data) > MAX_AUDIO:
-        raise AppError("file_too_large", 413, "Audio 2 MB se chhota hona chahiye.")
-    if not _audio_ok(data):
-        raise AppError("unsupported_media", 415, "Yeh audio format nahi chalega.")
-    src = tempfile.NamedTemporaryFile(delete=False, suffix=".audio")
+        raise AppError("file_too_large", 413, "Audio bahut lamba hai. 30 second se kam bolein.")
+    if len(data) < MIN_AUDIO_BYTES:
+        raise AppError("audio_too_short", 422, TOO_SHORT)
+    src = tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix or ".audio")
     src.write(data)
     src.close()
     dst = src.name + ".wav"
     try:
         # convert one second past the limit so over-long clips are detectable from the output length
-        code, _ = await _run(ffmpeg_bin(), "-y", "-v", "error", "-i", src.name, "-t", str(MAX_AUDIO_SECONDS + 1),
-                             "-ac", "1", "-ar", "16000", "-sample_fmt", "s16", dst)
-        if code != 0 or not os.path.exists(dst):
-            raise AppError("unsupported_media", 415, "Audio padh nahi paaye.")
+        code, err = await _run(ffmpeg_bin(), "-y", "-v", "error", "-i", src.name, "-t", str(MAX_AUDIO_SECONDS + 1),
+                               "-ac", "1", "-ar", "16000", "-sample_fmt", "s16", dst)
+        if code != 0 or not os.path.exists(dst) or os.path.getsize(dst) <= 44:
+            # metadata only, never audio content: enough to see what a browser actually sent
+            log.warning("audio_decode_failed", size=len(data), head=data[:12].hex(), filename=filename,
+                        content_type=content_type, ffmpeg=err.decode(errors="replace")[-200:])
+            raise AppError("audio_unreadable", 422, UNREADABLE)
         seconds = (os.path.getsize(dst) - 44) / (16000 * 2)
         if seconds > MAX_AUDIO_SECONDS + 0.5:
             os.unlink(dst)
             raise AppError("audio_too_long", 422, "30 second se chhota bolein.")
+        if seconds < MIN_AUDIO_SECONDS:
+            os.unlink(dst)
+            raise AppError("audio_too_short", 422, TOO_SHORT)
         return dst
     finally:
         os.unlink(src.name)

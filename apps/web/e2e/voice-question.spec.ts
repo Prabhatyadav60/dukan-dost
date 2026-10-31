@@ -14,6 +14,19 @@ test('voice question → spoken answer', async ({ page }) => {
   await page.getByRole('button', { name: 'Login karein' }).click();
   await expect(page.getByText('Aaj ka hisaab')).toBeVisible();
 
+  // a quick tap is not speech: friendly hint, nothing sent
+  let parsed = 0;
+  page.on('request', (r) => { if (r.url().endsWith('/v1/voice/parse')) parsed += 1; });
+  const tapMic = page.getByRole('button', { name: 'Bolne ke liye dabaakar rakhein' });
+  const tb = (await tapMic.boundingBox())!;
+  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(150);
+  await page.mouse.up();
+  await expect(page.getByText('Mic dabaakar rakhein, bolein, phir chhodein.')).toBeVisible();
+  expect(parsed).toBe(0);
+  await page.waitForTimeout(1500);
+
   const spoken = page.waitForResponse((r) => r.url().endsWith('/v1/tts') && r.status() === 200, { timeout: 60_000 });
   const mic = page.getByRole('button', { name: 'Bolne ke liye dabaakar rakhein' });
   const box = (await mic.boundingBox())!;
