@@ -4,7 +4,7 @@ import type {
   VoiceParseResponse,
 } from './types';
 
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 
 const TOKEN_KEY = 'dd_token';
 let token: string | null = sessionStorage.getItem(TOKEN_KEY);
